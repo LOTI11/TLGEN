@@ -1,0 +1,69 @@
+# =========================
+# ENVIRONMENT / SECRETS
+# =========================
+.env
+.env.*
+!.env.example
+
+# =========================
+# PYTHON
+# =========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+
+# =========================
+# VIRTUAL ENVIRONMENT
+# =========================
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# PYTEST / COVERAGE
+# =========================
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+
+# =========================
+# OS
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# LOGS
+# =========================
+*.log
+logs/
+
+# =========================
+# INPUT DOCUMENTS
+# Non caricare documentazione cliente
+# =========================
+data/input/*
+!data/input/.gitkeep
+
+# =========================
+# GENERATED OUTPUT
+# =========================
+data/output/*
+!data/output/.gitkeep
+
+# =========================
+# TEMP FILES
+# =========================
+*.tmp
+*.temp
+~$*

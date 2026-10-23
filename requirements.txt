@@ -1,0 +1,9 @@
+pydantic>=2.8,<3
+pydantic-settings>=2.3,<3
+python-dotenv>=1.0,<2
+pypdf>=5.0,<6
+python-docx>=1.1,<2
+openpyxl>=3.1,<4
+requests>=2.32,<3
+msal>=1.31,<2
+pytest>=8.3,<9
