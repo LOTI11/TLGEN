@@ -3,6 +3,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from dev import import_test_cases_xlsm
+
 
 def install_dependencies() -> None:
     requirements_file = Path(__file__).resolve().parent / "requirements.txt"
@@ -21,8 +23,9 @@ def install_dependencies() -> None:
 
 
 def main() -> None:
-
-    print("prova partenza")
+    print("avvio")
+    import_test_cases_xlsm.import_test_cases()
+    print("fine")
 
 
 if __name__ == "__main__":

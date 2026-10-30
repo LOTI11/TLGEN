@@ -174,17 +174,19 @@ dal quale è stato generato.
 Utilizza:
 
 initiative_id:
-- valorizza con iniziativa_id del requisito quando disponibile.
+- valorizza con 1234567.
 
 user_requirement_id:
-- utilizza jira_id del requisito quando disponibile.
+- si trova nel file OTE in caso non venga consegnato va inserito come input dall'utente (per il momento usa XX12345).
 
 requirement_use_case:
-- utilizza il title del requisito sorgente.
+- utilizza il source_id del requisito sorgente (rimuovendo l'estensione del file se presente, esempio.pdf, .md, ...).
+
+id3:
+- utilizza dal file di requirements la us ovvero il campo confluence_id
 
 scenario_functionality:
-- descrivi la specifica funzionalità o condizione verificata
-  utilizzando esclusivamente informazioni del requisito.
+- inserisci il "Scenario"
 
 test_case_title:
 - genera un titolo sintetico che descriva chiaramente
@@ -193,6 +195,12 @@ test_case_title:
 description_notes:
 - descrivi lo scopo del caso di test facendo riferimento
   esclusivamente al requisito.
+
+test_type:
+- mettere Integrato o Funzionale in base alla tipologia di test
+
+estimated_duration:
+. mettere sempre 00:20
 
 Non inventare identificativi non presenti nel requisito.
 
@@ -232,23 +240,27 @@ GESTIONE DEI CAMPI
 Per i campi derivabili direttamente:
 
 initiative_id:
-utilizzare iniziativa_id.
+usa 1234567
 
 user_requirement_id:
-utilizzare jira_id.
+usa XX12345.
 
 requirement_use_case:
+utilizza il source_id del requisito sorgente (rimuovendo l'estensione del file se presente, esempio.pdf, .md, ...).
+
+test_case_macro_funzionalita:
 utilizzare title.
 
-scenario_functionality:
+scenario_test_case:
 generare una descrizione sintetica dello scenario sulla base
 del requisito.
 
-test_case_title:
-generare un titolo chiaro e verificabile sulla base dello scenario.
+scenario_functionality:
+usa Scenario
 
-description_notes:
-descrivere sinteticamente l'obiettivo del test.
+test_case_title:
+generare un titolo chiaro e verificabile sulla base dello scenario_test_case deve essere u titolo breve e chiaro e non riprendere completamente ciò che c'è scritto nel campo.
+
 
 Per i seguenti campi:
 
@@ -256,6 +268,7 @@ application_module
 id1
 macro_area
 id2
+descritpion_notes
 
 se l'informazione non è presente nel requisito utilizzare null.
 
@@ -350,29 +363,12 @@ Ogni step deve essere:
 Quando il requisito descrive esplicitamente un percorso, trasformalo
 in step.
 
-Esempio concettuale:
-
-Requisito:
-
-"L'utente accede a Pagamenti ricorrenti, seleziona un abbonamento
-e seleziona Gestisci abbonamento."
-
-Può diventare:
-
-Step 1
-step_type: "Azione"
-actions_and_data:
-"Accedere alla sezione Pagamenti ricorrenti."
-
-Step 2
-step_type: "Azione"
-actions_and_data:
-"Selezionare l'abbonamento."
-
-Step 3
-step_type: "Azione"
-actions_and_data:
-"Selezionare Gestisci abbonamento."
+Tutti i test devono avere:
+- "Attività Preliminari e/o Precondizioni": informazione necessaria che serve per impostare come deve essere l'ambiente o le caratteristiche di un particolare utente.
+- "Stato Base": la situazione in cui il tester deve trovarsi come step base ovvero punto di partenza (esempio utente loggato in app, utente in pre login oppure app chiusa in partenza).
+- "Azione": suddividere in azioni che il tester deve eseguire al fine di arrivare al risultato finale atteso
+- "Verifica interna" verifica interna app quindi lato FE
+- solo se il test è integrato "Verifica esterna" verifica estern app che comprende sistemi esterni da FE esempio: BE app, BE, one view, etc.. 
 
 Non aggiungere schermate o passaggi intermedi non presenti
 nel requisito.
@@ -392,9 +388,9 @@ Esempio:
 
 Se il requisito dichiara esplicitamente:
 
-abilitatoDisattivazioneSubscriptions = TRUE
+abilitatoDisattivazioneSubscriptions = TRUE, la condizione può essere rappresentata come precondizione.
 
-la condizione può essere rappresentata come precondizione.
+oppure se il requisito dice fare un bonifico o un postagiro, la condizione può essere un utente che dispone di mezzi con saldo per eseguire un bonifico
 
 Non inventare configurazioni necessarie non documentate.
 
@@ -406,8 +402,12 @@ Utilizza:
 
 "Stato Base"
 
-quando è necessario verificare uno stato iniziale esplicitamente
-descritto nel requisito prima dell'esecuzione delle azioni.
+quando è necessario verificare uno stato iniziale descritto nel requisito prima dell'esecuzione delle azioni.
+
+Quando un test presenta un operatività da fare in app/web di poste, lo stato base deve essere sempre la login
+
+se è un test al di fuori dell'app/web di poste impostare lo stato base in merito a cio che dice il test
+
 
 ==================================================
 AZIONE
@@ -427,6 +427,14 @@ per rappresentare operazioni eseguite durante il flusso, come:
 ma esclusivamente quando tali operazioni sono documentate
 nel requisito.
 
+esempio se il requisito è eseguire un bonifico da 100€, avremo:
+
+- accesso alla sezione bonifico,
+- inserimento dati fino a importo
+- inserimento importo a 100€
+- inserimento dati conclusivi
+- conferma operazione
+
 ==================================================
 VERIFICA INTERNA
 ==================================================
@@ -437,6 +445,10 @@ Utilizza:
 
 per verifiche relative al comportamento dell'applicazione o
 dei sistemi descritti nei requisiti.
+
+esempio se il requisito è eseguire un bonifico da 100€, avremo:
+
+verificare che il bonifico sia andato a buon fine e le schermate siano coerenti (se ci sono info sulle schermate aggiungerle)
 
 ==================================================
 VERIFICA ESTERNA
@@ -481,19 +493,26 @@ RISULTATO ATTESO
 expected_result deve rappresentare il risultato verificabile
 dello step.
 
-Il risultato deve essere ricavato esclusivamente da:
-
-- description;
-- acceptance_criteria;
-- business_rules;
-
-del requisito.
-
-Non inventare expected result.
-
 Quando uno step rappresenta esclusivamente un'azione e il requisito
 non specifica un risultato intermedio verificabile, non inventare
 un comportamento.
+
+partendo da queste azioni di esempio 
+
+- accesso alla sezione bonifico,
+- inserimento dati fino a importo
+- inserimento importo a 100€
+- inserimento dati conclusivi
+- conferma operazione
+
+mi aspetto di vedere dei risultati attesi di questo tipo:
+
+- apertura bonifico
+- dati inseriti correttamente
+- importo inserito correttamente
+- dati inseriti correttamente
+- operazione confermata
+
 
 Utilizza una stringa vuota "".
 

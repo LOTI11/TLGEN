@@ -4,6 +4,7 @@ from typing import Optional
 class SourceType(str, Enum):
     PDF = "PDF"
     DOCX = "DOCX"
+    MD = "MD"
 
 class Requirement(BaseModel):
     # Documento da cui proviene il requisito

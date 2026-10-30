@@ -21,22 +21,24 @@ class TestStep(BaseModel):
 
 class TestCase(BaseModel):
 
-    # Dati caso di test
+    # iniziativa
     initiative_id: str
-
     application_module: Optional[str] = None
     user_requirement_id: Optional[str] = None
+
+    # scomposizione base di test
     id1: Optional[str] = None
     macro_area: Optional[str] = None
     id2: Optional[str] = None
-
     requirement_use_case: str
     id3: str
     scenario_functionality: str
+    scenario_test_case: Optional[str] = None
+
+    #caso di test alto livello
     test_case_title: str
-
+    test_case_macro_funzionalita: Optional[str] = None
     description_notes: Optional[str] = None
-
     test_type: str
     level: str
     estimated_duration: str
