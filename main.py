@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from dev import import_test_cases_xlsm
+from services.gemini_service import GeminiService
 
 
 def install_dependencies() -> None:
@@ -23,7 +24,15 @@ def install_dependencies() -> None:
 
 
 def main() -> None:
-    print("avvio")
+    #creazione istanza per gemini e comunicazione con il modello per generare una risposta
+    #print("creazione istanza gemini")
+    #gemini = GeminiService()
+
+    #generazione risposta dal modello gemini
+    #risposta = gemini.generate_response("scrivimi un testo di esempio")
+    #print(risposta)
+
+    #inserimento dei test case generati nel file template cliente
     import_test_cases_xlsm.import_test_cases()
     print("fine")
 

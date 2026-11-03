@@ -14,11 +14,13 @@ from pydantic import ValidationError
 from models.TestCase import TestCase
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
+DATA_JSON = PROJECT_ROOT / "data" / "input" / "jsonAI"
 DATA_INPUT = PROJECT_ROOT / "data" / "input"
+DATA_OUTPUT = PROJECT_ROOT / "data" / "output"
 
-JSON_FILE = DATA_INPUT / "test_cases.json"
+JSON_FILE = DATA_JSON / "test_cases.json"
 XLSM_TEMPLATE_FILE = DATA_INPUT / "Template_TL_OneApp.xlsm"
-XLSM_OUTPUT_FILE = DATA_INPUT / "Export_TL_OneApp.xlsm"
+XLSM_OUTPUT_FILE = DATA_OUTPUT / "Export_TL_OneApp.xlsm"
 
 SHEET_NAME: Optional[str] = "SpecificaDiTest"
 START_ROW = 4
