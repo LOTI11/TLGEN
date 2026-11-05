@@ -614,10 +614,6 @@ VINCOLI OUTPUT
 INPUT REALE
 ==================================================
 
-NUMERO_CASI_TEST:
+NUMERO_CASI_TEST: 20
 
-{{NUMERO_CASI_TEST}}
-
-JSON_REQUISITI:
-
-{{JSON_REQUISITI}}
+la seguente struttura rappresenta la struttura json dei requisiti:
