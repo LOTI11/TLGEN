@@ -13,10 +13,10 @@ APP_SUBTITLE = "Your Test List ready in minutes"
 # Directory scanned for the "Available Documents" section.
 # Override with the TLGEN_DOCUMENTS_DIR environment variable.
 DOCUMENTS_DIR = Path(
-    os.environ.get("TLGEN_DOCUMENTS_DIR", PROJECT_ROOT / "data" / "input")
+    os.environ.get("TLGEN_DOCUMENTS_DIR", PROJECT_ROOT / "data" / "input" / "confluence")
 )
 
-SUPPORTED_EXTENSIONS: tuple[str, ...] = ("md", "json", "docx", "pdf", "png")
+SUPPORTED_EXTENSIONS: tuple[str, ...] = ("md",)
 
 STEPS: tuple[str, ...] = ("Documents", "Initiative", "Test Data", "Review", "Generation")
 

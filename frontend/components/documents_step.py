@@ -5,22 +5,13 @@ from pathlib import Path
 import streamlit as st
 
 from frontend.config import DOCUMENTS_DIR, SUPPORTED_EXTENSIONS
-from frontend.documents import DocumentRef, format_size, list_available_documents
+from frontend.documents import (
+    DocumentRef,
+    format_size,
+    list_available_documents,
+    selected_documents,
+)
 from frontend.state import AppState
-
-
-def selected_documents(state: AppState) -> list[DocumentRef]:
-    """Current selection (repository + uploaded), in display order."""
-    repo = [
-        d
-        for d in list_available_documents(DOCUMENTS_DIR)
-        if d.name in state.selected_repo_documents
-    ]
-    uploaded = [
-        DocumentRef(name, "upload", len(data))
-        for name, data in state.uploaded_documents.items()
-    ]
-    return repo + uploaded
 
 
 def render_documents_table(docs: list[DocumentRef]) -> None:

@@ -16,6 +16,17 @@ class MarkdownReader:
         self.directory = DATA_CONFLUENCE
 
 
+    @staticmethod
+    def format_document(name: str, text: str) -> str:
+        """Racchiude il testo di un documento nei delimitatori FILE / FINE FILE."""
+        return f"""
+# FILE: {name}
+
+{text}
+
+# FINE FILE: {name}
+"""
+
     def read_all(self) -> str:
         """Legge tutti i file .md presenti nella directory e restituisce il contenuto in un'unica stringa."""
 
@@ -39,15 +50,7 @@ class MarkdownReader:
             # per rendere riconoscibili i confini tra documenti.
             text = file_path.read_text(encoding="utf-8")
 
-            contents.append(
-                f"""
-# FILE: {file_path.name}
-
-{text}
-
-# FINE FILE: {file_path.name}
-"""
-            )
+            contents.append(self.format_document(file_path.name, text))
 
         # Segnala esplicitamente se la directory non contiene file Markdown.
         if not contents:

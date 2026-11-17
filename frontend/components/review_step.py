@@ -4,10 +4,8 @@ import html
 
 import streamlit as st
 
-from frontend.components.documents_step import (
-    render_documents_table,
-    selected_documents,
-)
+from frontend.components.documents_step import render_documents_table
+from frontend.documents import selected_documents
 from frontend.state import AppState
 from frontend.validation import INITIATIVE_LABELS
 

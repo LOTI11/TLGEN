@@ -5,7 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from frontend.config import SUPPORTED_EXTENSIONS
+from frontend.config import DOCUMENTS_DIR, SUPPORTED_EXTENSIONS
+from frontend.state import AppState
 
 
 @dataclass(frozen=True)
@@ -37,3 +38,24 @@ def list_available_documents(directory: Path) -> list[DocumentRef]:
         for p in sorted(directory.iterdir(), key=lambda p: p.name.lower())
         if p.is_file() and p.suffix.lower() in suffixes
     ]
+
+
+def selected_documents(state: AppState) -> list[DocumentRef]:
+    """Current selection (repository + uploaded), in display order."""
+    repo = [
+        d
+        for d in list_available_documents(DOCUMENTS_DIR)
+        if d.name in state.selected_repo_documents
+    ]
+    uploaded = [
+        DocumentRef(name, "upload", len(data))
+        for name, data in state.uploaded_documents.items()
+    ]
+    return repo + uploaded
+
+
+def read_document_bytes(ref: DocumentRef, state: AppState) -> bytes:
+    """Raw content of a selected document (from disk or from the uploaded files)."""
+    if ref.path is not None:
+        return ref.path.read_bytes()
+    return state.uploaded_documents[ref.name]

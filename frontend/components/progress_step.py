@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import html
+
 import streamlit as st
 
+from frontend.actions import run_generation
 from frontend.config import PIPELINE_STAGES
 from frontend.state import (
     STAGE_DONE,
@@ -11,33 +14,68 @@ from frontend.state import (
     AppState,
 )
 
-# status -> (badge label, badge colour, badge icon)
+# status -> (label, glyph shown in the circle; None = stage number)
 _STATUS_DISPLAY = {
-    STAGE_PENDING: ("Waiting", "gray", ":material/schedule:"),
-    STAGE_RUNNING: ("In progress", "blue", ":material/autorenew:"),
-    STAGE_DONE: ("Completed", "green", ":material/check_circle:"),
-    STAGE_ERROR: ("Error", "red", ":material/error:"),
+    STAGE_PENDING: ("Waiting", None),
+    STAGE_RUNNING: ("In progress", None),
+    STAGE_DONE: ("Completed", "✓"),
+    STAGE_ERROR: ("Error", "!"),
 }
 
 
-def render_progress_step(state: AppState) -> None:
+def _stage_card(number: int, label: str, description: str, status: str, detail: str) -> str:
+    status_label, glyph = _STATUS_DISPLAY[status]
+    detail_html = f'<div class="tl-stage-detail">{html.escape(detail)}</div>' if detail else ""
+    return (
+        f'<div class="tl-stage {status}">'
+        f'<div class="tl-stage-dot">{glyph or number}</div>'
+        f'<div class="tl-stage-body"><div class="tl-stage-title">{html.escape(label)}</div>'
+        f'<div class="tl-stage-desc">{html.escape(description)}</div>{detail_html}</div>'
+        f'<div class="tl-stage-pill">{status_label}</div></div>'
+    )
+
+
+def _render_board(state: AppState) -> None:
     total = len(PIPELINE_STAGES)
     done = sum(s == STAGE_DONE for s in state.stage_status.values())
-
-    st.markdown("#### Generation Progress")
     st.progress(done / total, text=f"{done} of {total} stages completed")
+    cards = "".join(
+        _stage_card(i, label, desc, state.stage_status[key], state.stage_detail.get(key, ""))
+        for i, (key, label, desc) in enumerate(PIPELINE_STAGES, start=1)
+    )
+    st.markdown(f'<div class="tl-stages">{cards}</div>', unsafe_allow_html=True)
 
-    for idx, (key, label, description) in enumerate(PIPELINE_STAGES, start=1):
-        status = state.stage_status[key]
-        badge_text, color, icon = _STATUS_DISPLAY[status]
-        with st.container(border=True):
-            num_col, text_col, status_col = st.columns([1, 8, 3], vertical_alignment="center")
-            num_col.markdown(f"### {idx}")
-            text_col.markdown(f"**{label}**")
-            text_col.caption(description)
-            status_col.badge(badge_text, icon=icon, color=color)
 
-    if state.stage_message:
-        st.info(state.stage_message)
-    elif state.generate_requested:
-        st.info("Generation is not connected to the backend yet.")
+def _render_preview(title: str, content: str) -> None:
+    if not content:
+        return
+    with st.expander(title):
+        st.text_area(title, content, height=300, disabled=True, label_visibility="collapsed")
+
+
+def render_progress_step(state: AppState) -> None:
+    st.markdown("#### Generation Progress")
+    board = st.empty()
+
+    def draw() -> None:
+        with board.container():
+            _render_board(state)
+
+    draw()
+    run_generation(draw)
+
+    errors = [
+        f"**{label}** — {state.stage_detail[key]}"
+        for key, label, _ in PIPELINE_STAGES
+        if state.stage_status[key] == STAGE_ERROR
+    ]
+    for message in errors:
+        st.error(message)
+    if errors:
+        st.caption("Fix the issue above (use Back to change the input), then generate again.")
+        return
+
+    _render_preview("Prepared input (requirements text)", state.requirements_text)
+    _render_preview("Prompt 1 (final prompt)", state.requirements_prompt)
+    if any(s == STAGE_PENDING for s in state.stage_status.values()):
+        st.info("Next stages are not connected to the backend yet.")

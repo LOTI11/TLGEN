@@ -72,3 +72,9 @@ data/output/*
 # Il tema (.streamlit/config.toml) resta versionato, i secrets no
 # =========================
 .streamlit/secrets.toml
+
+# =========================
+# FINAL PROMPTS (generati: template + documenti cliente)
+# =========================
+parser/finalPrompt/*
+!parser/finalPrompt/.gitkeep

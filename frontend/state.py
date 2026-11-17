@@ -37,8 +37,12 @@ class AppState:
     test_count: int = 0
     # Pipeline progress, to be updated by the backend integration.
     stage_status: dict[str, str] = field(default_factory=_initial_stage_status)
-    stage_message: str = ""
-    generate_requested: bool = False
+    stage_detail: dict[str, str] = field(default_factory=dict)
+    generation_pending: bool = False
+    # Output of stage 1 (Prepare inputs): input text for Prompt 1.
+    requirements_text: str = ""
+    # Output of stage 2 (Process prompt 1): final prompt sent to the model.
+    requirements_prompt: str = ""
 
 
 def get_state() -> AppState:
@@ -51,8 +55,16 @@ def go_to(step: int) -> None:
     get_state().step = max(0, min(step, len(STEPS) - 1))
 
 
-def set_stage_status(stage_key: str, status: str, message: str = "") -> None:
-    """Update one pipeline stage (pending/running/done/error)."""
+def set_stage_status(stage_key: str, status: str, detail: str = "") -> None:
+    """Update one pipeline stage (pending/running/done/error) and its detail text."""
     state = get_state()
     state.stage_status[stage_key] = status
-    state.stage_message = message
+    state.stage_detail[stage_key] = detail
+
+
+def reset_pipeline() -> None:
+    state = get_state()
+    state.stage_status = _initial_stage_status()
+    state.stage_detail = {}
+    state.requirements_text = ""
+    state.requirements_prompt = ""
