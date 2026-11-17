@@ -47,6 +47,12 @@ class AppState:
     requirements_json: str = ""
     # Output of stage 4 (Write prompt 2): final prompt for test case generation.
     test_cases_prompt: str = ""
+    # Output of stage 5 (Generate test cases): formatted test cases JSON.
+    test_cases_json: str = ""
+    # Output of stage 6 (Build Test List): path of the generated XLSM file.
+    export_file: str = ""
+    # Non-blocking notices for the user (e.g. JSON repaired automatically).
+    warnings: list[str] = field(default_factory=list)
 
 
 def get_state() -> AppState:
@@ -74,3 +80,6 @@ def reset_pipeline() -> None:
     state.requirements_prompt = ""
     state.requirements_json = ""
     state.test_cases_prompt = ""
+    state.test_cases_json = ""
+    state.export_file = ""
+    state.warnings = []

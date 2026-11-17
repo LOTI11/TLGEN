@@ -1,14 +1,15 @@
 """CTA handlers: the integration point between the UI and the backend services.
 
-Implemented stages: ``inputs``, ``prompt1``, ``requirements``, ``prompt2``.
-Still to connect: test_cases, export. Add each one as a
-``_work_*`` function and run it from ``run_generation`` through ``_run_stage``.
+All pipeline stages are connected: inputs, prompt1, requirements, prompt2,
+test_cases, export. Each one is a ``_work_*`` function run from
+``run_generation`` through ``_run_stage``.
 """
 
 from __future__ import annotations
 
 import time
 from collections.abc import Callable
+from pathlib import Path
 
 import streamlit as st
 
@@ -33,9 +34,13 @@ from services.input_preparation import (
 from services.json_generation import (
     REQUIREMENTS_JSON_FILE,
     REQUIREMENTS_RAW_FILE,
+    TEST_CASES_JSON_FILE,
+    TEST_CASES_RAW_FILE,
+    GeneratedJson,
     JsonGenerationError,
     generate_json_file,
 )
+from services.test_list_export import ExportError, export_test_list
 from services.prompt_builder import (
     PromptBuildError,
     build_requirements_prompt,
@@ -47,7 +52,13 @@ UpdateUi = Callable[[], None]
 StageWorker = Callable[[Callable[[str], None]], str]
 
 # Errors that a stage may raise and that must be shown to the user.
-_STAGE_ERRORS = (DocumentReadError, PromptBuildError, JsonGenerationError, OSError)
+_STAGE_ERRORS = (
+    DocumentReadError,
+    PromptBuildError,
+    JsonGenerationError,
+    ExportError,
+    OSError,
+)
 
 
 def on_generate_clicked() -> None:
@@ -69,7 +80,8 @@ def run_generation(update_ui: UpdateUi) -> None:
         ("prompt1", lambda report: _work_write_prompt1(state)),
         ("requirements", lambda report: _work_generate_requirements(state, report)),
         ("prompt2", lambda report: _work_write_prompt2(state)),
-        # TODO: test_cases -> export
+        ("test_cases", lambda report: _work_generate_test_cases(state, report)),
+        ("export", lambda report: _work_export(state, report)),
     )
     for key, worker in stages:
         if not _run_stage(key, worker, update_ui):
@@ -125,24 +137,70 @@ def _gemini_service():
     return GeminiService()
 
 
-def _work_generate_requirements(state: AppState, report: Callable[[str], None]) -> str:
-    """Stage 3: send Prompt 1 to Gemini and save the requirements JSON."""
+def _generate_json(
+    state: AppState,
+    report: Callable[[str], None],
+    prompt: str,
+    raw_file: Path,
+    json_file: Path,
+    items_key: str,
+    items_label: str,
+) -> tuple[GeneratedJson, str]:
+    """Send ``prompt`` to Gemini and save the JSON; return it with a summary line."""
     report("Connecting to Gemini…")
     try:
         gemini = _gemini_service()
     except Exception as exc:  # missing credentials / invalid .env configuration
         raise JsonGenerationError(f"Configurazione Gemini non valida: {exc}") from exc
 
-    report("Waiting for the model response…")
     started = time.monotonic()
     result = generate_json_file(
-        state.requirements_prompt, REQUIREMENTS_RAW_FILE, REQUIREMENTS_JSON_FILE, gemini
+        prompt, raw_file, json_file, gemini, items_key=items_key, on_status=report
+    )
+
+    items = result.data.get(items_key) if isinstance(result.data, dict) else None
+    parts = [f"{len(items)} {items_label}"] if isinstance(items, list) else []
+    parts.append("JSON saved")
+    if result.attempts > 1:
+        parts.append(f"{result.attempts} attempts")
+    if result.repaired:
+        parts.append("repaired automatically")
+        state.warnings.append(
+            f"{items_label.capitalize()}: the model returned an invalid JSON, which was "
+            f"repaired automatically. Review the result (original text in {raw_file.name})."
+        )
+    parts.append(f"{time.monotonic() - started:.0f}s")
+    return result, " · ".join(parts)
+
+
+def _work_generate_requirements(state: AppState, report: Callable[[str], None]) -> str:
+    """Stage 3: send Prompt 1 to Gemini and save the requirements JSON."""
+    result, detail = _generate_json(
+        state,
+        report,
+        state.requirements_prompt,
+        REQUIREMENTS_RAW_FILE,
+        REQUIREMENTS_JSON_FILE,
+        "requirements",
+        "requirements",
     )
     state.requirements_json = result.text
+    return detail
 
-    items = result.data.get("requirements") if isinstance(result.data, dict) else None
-    count = f"{len(items)} requirements · " if isinstance(items, list) else ""
-    return f"{count}JSON saved · {time.monotonic() - started:.0f}s"
+
+def _work_generate_test_cases(state: AppState, report: Callable[[str], None]) -> str:
+    """Stage 5: send Prompt 2 to Gemini and save the test cases JSON."""
+    result, detail = _generate_json(
+        state,
+        report,
+        state.test_cases_prompt,
+        TEST_CASES_RAW_FILE,
+        TEST_CASES_JSON_FILE,
+        "test_cases",
+        "test cases",
+    )
+    state.test_cases_json = result.text
+    return detail
 
 
 def _work_write_prompt2(state: AppState) -> str:
@@ -150,3 +208,11 @@ def _work_write_prompt2(state: AppState) -> str:
     prompt = build_test_cases_prompt()
     state.test_cases_prompt = prompt
     return f"Prompt generated · {len(prompt):,} characters"
+
+
+def _work_export(state: AppState, report: Callable[[str], None]) -> str:
+    """Stage 6: import the test cases into the XLSM template."""
+    report("Writing the Excel file…")
+    output_file = export_test_list()
+    state.export_file = str(output_file)
+    return f"{output_file.name} · {output_file.stat().st_size / 1024:,.0f} KB"

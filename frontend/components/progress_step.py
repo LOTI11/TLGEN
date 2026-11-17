@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from pathlib import Path
 
 import streamlit as st
 
@@ -13,6 +14,7 @@ from frontend.state import (
     STAGE_RUNNING,
     AppState,
 )
+from services.test_list_export import XLSM_MIME_TYPE
 
 # status -> (label, glyph shown in the circle; None = stage number)
 _STATUS_DISPLAY = {
@@ -42,6 +44,7 @@ STAGE_OUTPUTS: dict[str, tuple[str, str, str | None]] = {
     "prompt1": ("Prompt 1 (final prompt)", "requirements_prompt", None),
     "requirements": ("Requirements (JSON)", "requirements_json", "json"),
     "prompt2": ("Prompt 2 (final prompt)", "test_cases_prompt", None),
+    "test_cases": ("Test cases (JSON)", "test_cases_json", "json"),
 }
 
 
@@ -79,7 +82,30 @@ def render_progress_step(state: AppState) -> None:
     draw()
     run_generation(draw)
 
+    for warning in state.warnings:
+        st.warning(warning, icon=":material/warning:")
+
     if any(s == STAGE_ERROR for s in state.stage_status.values()):
         st.caption("Fix the issue above (use Back to change the input), then generate again.")
-    elif any(s == STAGE_PENDING for s in state.stage_status.values()):
-        st.info("Next stages are not connected to the backend yet.")
+    elif all(s == STAGE_DONE for s in state.stage_status.values()):
+        _render_completion(state)
+
+
+def _render_completion(state: AppState) -> None:
+    """Final result: success message and download of the generated Test List."""
+    export_file = Path(state.export_file)
+    st.success("Your Test List is ready.")
+    try:
+        data = export_file.read_bytes()
+    except OSError as exc:
+        st.error(f"Generated file not readable: {exc}")
+        return
+    st.download_button(
+        "Download Test List",
+        data=data,
+        file_name=export_file.name,
+        mime=XLSM_MIME_TYPE,
+        type="primary",
+        icon=":material/download:",
+        on_click="ignore",
+    )
