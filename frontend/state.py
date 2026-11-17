@@ -41,8 +41,12 @@ class AppState:
     generation_pending: bool = False
     # Output of stage 1 (Prepare inputs): input text for Prompt 1.
     requirements_text: str = ""
-    # Output of stage 2 (Process prompt 1): final prompt sent to the model.
+    # Output of stage 2 (Write prompt 1): final prompt sent to the model.
     requirements_prompt: str = ""
+    # Output of stage 3 (Generate requirements): formatted requirements JSON.
+    requirements_json: str = ""
+    # Output of stage 4 (Write prompt 2): final prompt for test case generation.
+    test_cases_prompt: str = ""
 
 
 def get_state() -> AppState:
@@ -68,3 +72,5 @@ def reset_pipeline() -> None:
     state.stage_detail = {}
     state.requirements_text = ""
     state.requirements_prompt = ""
+    state.requirements_json = ""
+    state.test_cases_prompt = ""

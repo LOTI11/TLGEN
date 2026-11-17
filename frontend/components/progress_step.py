@@ -35,22 +35,37 @@ def _stage_card(number: int, label: str, description: str, status: str, detail: 
     )
 
 
+# Stage key -> (expander title, state attribute holding the output, code language).
+# Add an entry here when a new stage produces a result to inspect.
+STAGE_OUTPUTS: dict[str, tuple[str, str, str | None]] = {
+    "inputs": ("Prepared input (requirements text)", "requirements_text", None),
+    "prompt1": ("Prompt 1 (final prompt)", "requirements_prompt", None),
+    "requirements": ("Requirements (JSON)", "requirements_json", "json"),
+    "prompt2": ("Prompt 2 (final prompt)", "test_cases_prompt", None),
+}
+
+
+def _render_output(state: AppState, stage_key: str) -> None:
+    """Collapsible result of a stage, shown right below its card."""
+    if stage_key not in STAGE_OUTPUTS:
+        return
+    title, attribute, language = STAGE_OUTPUTS[stage_key]
+    content = getattr(state, attribute)
+    if content:
+        with st.expander(title):
+            st.code(content, language=language, wrap_lines=True, height=300)
+
+
 def _render_board(state: AppState) -> None:
     total = len(PIPELINE_STAGES)
     done = sum(s == STAGE_DONE for s in state.stage_status.values())
     st.progress(done / total, text=f"{done} of {total} stages completed")
-    cards = "".join(
-        _stage_card(i, label, desc, state.stage_status[key], state.stage_detail.get(key, ""))
-        for i, (key, label, desc) in enumerate(PIPELINE_STAGES, start=1)
-    )
-    st.markdown(f'<div class="tl-stages">{cards}</div>', unsafe_allow_html=True)
-
-
-def _render_preview(title: str, content: str) -> None:
-    if not content:
-        return
-    with st.expander(title):
-        st.text_area(title, content, height=300, disabled=True, label_visibility="collapsed")
+    for number, (key, label, description) in enumerate(PIPELINE_STAGES, start=1):
+        card = _stage_card(
+            number, label, description, state.stage_status[key], state.stage_detail.get(key, "")
+        )
+        st.markdown(card, unsafe_allow_html=True)
+        _render_output(state, key)
 
 
 def render_progress_step(state: AppState) -> None:
@@ -64,18 +79,7 @@ def render_progress_step(state: AppState) -> None:
     draw()
     run_generation(draw)
 
-    errors = [
-        f"**{label}** — {state.stage_detail[key]}"
-        for key, label, _ in PIPELINE_STAGES
-        if state.stage_status[key] == STAGE_ERROR
-    ]
-    for message in errors:
-        st.error(message)
-    if errors:
+    if any(s == STAGE_ERROR for s in state.stage_status.values()):
         st.caption("Fix the issue above (use Back to change the input), then generate again.")
-        return
-
-    _render_preview("Prepared input (requirements text)", state.requirements_text)
-    _render_preview("Prompt 1 (final prompt)", state.requirements_prompt)
-    if any(s == STAGE_PENDING for s in state.stage_status.values()):
+    elif any(s == STAGE_PENDING for s in state.stage_status.values()):
         st.info("Next stages are not connected to the backend yet.")

@@ -4,15 +4,43 @@ from __future__ import annotations
 
 from pathlib import Path
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+from services.json_generation import REQUIREMENTS_JSON_FILE
 
-# Stessi percorsi usati da main.py per il Prompt 1.
-REQUIREMENTS_PROMPT_TEMPLATE = PROJECT_ROOT / "parser" / "prompt" / "parser.md"
-REQUIREMENTS_PROMPT_FINAL = PROJECT_ROOT / "parser" / "finalPrompt" / "finalParser.md"
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROMPT_DIR = PROJECT_ROOT / "parser" / "prompt"
+FINAL_PROMPT_DIR = PROJECT_ROOT / "parser" / "finalPrompt"
+
+# Stessi percorsi usati da main.py.
+REQUIREMENTS_PROMPT_TEMPLATE = PROMPT_DIR / "parser.md"
+REQUIREMENTS_PROMPT_FINAL = FINAL_PROMPT_DIR / "finalParser.md"
+TEST_CASES_PROMPT_TEMPLATE = PROMPT_DIR / "testCaseGenerator.md"
+TEST_CASES_PROMPT_FINAL = FINAL_PROMPT_DIR / "finalTestCases.md"
 
 
 class PromptBuildError(Exception):
     """Il prompt non può essere costruito o salvato."""
+
+
+def _read_text(path: Path, description: str) -> str:
+    if not path.is_file():
+        raise PromptBuildError(f"{description} non trovato: {path}")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise PromptBuildError(f"{description} non leggibile: {exc}") from exc
+    if not text.strip():
+        raise PromptBuildError(f"{description} è vuoto: {path}")
+    return text
+
+
+def _merge_and_save(template: str, data: str, output_file: Path) -> str:
+    prompt = template + "\n\n" + data
+    try:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
+        output_file.write_text(prompt, encoding="utf-8")
+    except OSError as exc:
+        raise PromptBuildError(f"Impossibile salvare il prompt finale: {exc}") from exc
+    return prompt
 
 
 def build_requirements_prompt(
@@ -20,24 +48,19 @@ def build_requirements_prompt(
     template_file: Path = REQUIREMENTS_PROMPT_TEMPLATE,
     output_file: Path = REQUIREMENTS_PROMPT_FINAL,
 ) -> str:
-    """Unisce il template del Prompt 1 al testo dei requisiti e salva il risultato."""
+    """Prompt 1: template + testo dei requisiti raccolti dai documenti."""
     if not requirements_text.strip():
         raise PromptBuildError("Il testo dei requisiti è vuoto.")
-    if not template_file.is_file():
-        raise PromptBuildError(f"Template del prompt non trovato: {template_file}")
+    template = _read_text(template_file, "Template del prompt 1")
+    return _merge_and_save(template, requirements_text, output_file)
 
-    try:
-        template = template_file.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError) as exc:
-        raise PromptBuildError(f"Template del prompt non leggibile: {exc}") from exc
-    if not template.strip():
-        raise PromptBuildError(f"Il template del prompt è vuoto: {template_file}")
 
-    prompt = template + "\n\n" + requirements_text
-
-    try:
-        output_file.parent.mkdir(parents=True, exist_ok=True)
-        output_file.write_text(prompt, encoding="utf-8")
-    except OSError as exc:
-        raise PromptBuildError(f"Impossibile salvare il prompt finale: {exc}") from exc
-    return prompt
+def build_test_cases_prompt(
+    requirements_json_file: Path = REQUIREMENTS_JSON_FILE,
+    template_file: Path = TEST_CASES_PROMPT_TEMPLATE,
+    output_file: Path = TEST_CASES_PROMPT_FINAL,
+) -> str:
+    """Prompt 2: template + JSON dei requisiti generato dal Prompt 1."""
+    template = _read_text(template_file, "Template del prompt 2")
+    requirements_json = _read_text(requirements_json_file, "File JSON dei requisiti")
+    return _merge_and_save(template, requirements_json, output_file)
