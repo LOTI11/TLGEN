@@ -67,3 +67,8 @@ data/output/*
 *.tmp
 *.temp
 ~$*
+# =========================
+# STREAMLIT
+# Il tema (.streamlit/config.toml) resta versionato, i secrets no
+# =========================
+.streamlit/secrets.toml
