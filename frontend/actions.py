@@ -42,6 +42,7 @@ from services.json_generation import (
 )
 from services.test_list_export import ExportError, export_test_list
 from services.prompt_builder import (
+    InitiativeData,
     PromptBuildError,
     build_requirements_prompt,
     build_test_cases_prompt,
@@ -122,9 +123,20 @@ def _work_prepare_inputs(state: AppState, report: Callable[[str], None]) -> str:
     return f"{len(documents)} documents read · {len(text):,} characters"
 
 
+def _initiative_data(state: AppState) -> InitiativeData:
+    """Initiative fields typed by the user, in the shape the prompt builder expects."""
+    initiative = state.initiative
+    return InitiativeData(
+        name=initiative["name"],
+        id=initiative["id"],
+        epic=initiative["epic"],
+        requirement_id=initiative["requirement_id"],
+    )
+
+
 def _work_write_prompt1(state: AppState) -> str:
     """Stage 2: merge the Prompt 1 template with the requirements text."""
-    prompt = build_requirements_prompt(state.requirements_text)
+    prompt = build_requirements_prompt(state.requirements_text, _initiative_data(state))
     state.requirements_prompt = prompt
     return f"Prompt generated · {len(prompt):,} characters"
 
@@ -205,7 +217,7 @@ def _work_generate_test_cases(state: AppState, report: Callable[[str], None]) ->
 
 def _work_write_prompt2(state: AppState) -> str:
     """Stage 4: merge the Prompt 2 template with the requirements JSON."""
-    prompt = build_test_cases_prompt()
+    prompt = build_test_cases_prompt(_initiative_data(state))
     state.test_cases_prompt = prompt
     return f"Prompt generated · {len(prompt):,} characters"
 
