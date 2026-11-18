@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import html
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 
-from frontend.actions import run_generation
+from frontend.actions import on_generate_clicked, run_generation
 from frontend.config import PIPELINE_STAGES
 from frontend.state import (
     STAGE_DONE,
@@ -14,6 +16,7 @@ from frontend.state import (
     STAGE_RUNNING,
     AppState,
 )
+from frontend.ui import step_title
 from services.test_list_export import XLSM_MIME_TYPE
 
 # status -> (label, glyph shown in the circle; None = stage number)
@@ -23,6 +26,26 @@ _STATUS_DISPLAY = {
     STAGE_DONE: ("Completed", "✓"),
     STAGE_ERROR: ("Error", "!"),
 }
+
+# Stage key -> (expander title, state attribute holding the output, code language).
+# Add an entry here when a new stage produces a result to inspect.
+STAGE_OUTPUTS: dict[str, tuple[str, str, str | None]] = {
+    "inputs": ("Prepared input (requirements text)", "requirements_text", None),
+    "prompt1": ("Prompt 1 (final prompt)", "requirements_prompt", None),
+    "requirements": ("Requirements (JSON)", "requirements_json", "json"),
+    "prompt2": ("Prompt 2 (final prompt)", "test_cases_prompt", None),
+    "test_cases": ("Test cases (JSON)", "test_cases_json", "json"),
+}
+
+
+@dataclass
+class _Board:
+    """Elements created once per run and updated in place (no full redraw)."""
+
+    progress: DeltaGenerator
+    cards: dict[str, DeltaGenerator]
+    outputs: dict[str, DeltaGenerator]
+    shown: set[str] = field(default_factory=set)
 
 
 def _stage_card(number: int, label: str, description: str, status: str, detail: str) -> str:
@@ -37,75 +60,89 @@ def _stage_card(number: int, label: str, description: str, status: str, detail: 
     )
 
 
-# Stage key -> (expander title, state attribute holding the output, code language).
-# Add an entry here when a new stage produces a result to inspect.
-STAGE_OUTPUTS: dict[str, tuple[str, str, str | None]] = {
-    "inputs": ("Prepared input (requirements text)", "requirements_text", None),
-    "prompt1": ("Prompt 1 (final prompt)", "requirements_prompt", None),
-    "requirements": ("Requirements (JSON)", "requirements_json", "json"),
-    "prompt2": ("Prompt 2 (final prompt)", "test_cases_prompt", None),
-    "test_cases": ("Test cases (JSON)", "test_cases_json", "json"),
-}
+def _build_board() -> _Board:
+    progress = st.progress(0.0)
+    cards: dict[str, DeltaGenerator] = {}
+    outputs: dict[str, DeltaGenerator] = {}
+    for key, _, _ in PIPELINE_STAGES:
+        with st.container(key=f"stage-{key}"):
+            cards[key] = st.empty()  # stateless card, replaced on every status change
+            outputs[key] = st.container()  # holds the result expander, written once
+    return _Board(progress, cards, outputs)
 
 
-def _render_output(state: AppState, stage_key: str) -> None:
-    """Collapsible result of a stage, shown right below its card."""
-    if stage_key not in STAGE_OUTPUTS:
+def _show_output(board: _Board, state: AppState, stage_key: str) -> None:
+    """Collapsible result of a stage, shown once right below its card."""
+    if stage_key in board.shown or stage_key not in STAGE_OUTPUTS:
         return
     title, attribute, language = STAGE_OUTPUTS[stage_key]
     content = getattr(state, attribute)
-    if content:
-        with st.expander(title):
-            st.code(content, language=language, wrap_lines=True, height=300)
+    if not content:
+        return
+    with board.outputs[stage_key], st.expander(title):
+        st.code(content, language=language, wrap_lines=True, height=300)
+    board.shown.add(stage_key)
 
 
-def _render_board(state: AppState) -> None:
+def _sync(board: _Board, state: AppState) -> None:
+    """Bring the board in line with the state, touching only what changed."""
     total = len(PIPELINE_STAGES)
     done = sum(s == STAGE_DONE for s in state.stage_status.values())
-    st.progress(done / total, text=f"{done} of {total} stages completed")
+    board.progress.progress(done / total, text=f"{done} of {total} stages completed")
     for number, (key, label, description) in enumerate(PIPELINE_STAGES, start=1):
-        card = _stage_card(
-            number, label, description, state.stage_status[key], state.stage_detail.get(key, "")
+        board.cards[key].html(
+            _stage_card(
+                number, label, description, state.stage_status[key], state.stage_detail.get(key, "")
+            )
         )
-        st.markdown(card, unsafe_allow_html=True)
-        _render_output(state, key)
+        _show_output(board, state, key)
 
 
 def render_progress_step(state: AppState) -> None:
-    st.markdown("#### Generation Progress")
-    board = st.empty()
+    step_title("Generation", ":material/rocket_launch:", "Follow the progress of each stage.")
+    board = _build_board()
+    _sync(board, state)
 
-    def draw() -> None:
-        with board.container():
-            _render_board(state)
-
-    draw()
-    run_generation(draw)
+    hint = st.empty()
+    if state.generation_pending:
+        hint.caption("Generation in progress: keep this page open.")
+    run_generation(lambda: _sync(board, state))
+    hint.empty()
 
     for warning in state.warnings:
         st.warning(warning, icon=":material/warning:")
 
     if any(s == STAGE_ERROR for s in state.stage_status.values()):
-        st.caption("Fix the issue above (use Back to change the input), then generate again.")
+        _render_error_actions()
     elif all(s == STAGE_DONE for s in state.stage_status.values()):
         _render_completion(state)
+
+
+def _render_error_actions() -> None:
+    st.caption("Fix the issue above, then try again (Back lets you change the input).")
+    st.button(
+        "Retry",
+        icon=":material/refresh:",
+        key="btn_retry",
+        type="primary",
+        on_click=on_generate_clicked,
+    )
 
 
 def _render_completion(state: AppState) -> None:
     """Final result: success message and download of the generated Test List."""
     export_file = Path(state.export_file)
-    st.success("Your Test List is ready.")
-    try:
-        data = export_file.read_bytes()
-    except OSError as exc:
-        st.error(f"Generated file not readable: {exc}")
+    if not export_file.is_file():
+        st.error("The generated file was not found.", icon=":material/error:")
         return
+    st.success("Your Test List is ready.", icon=":material/check_circle:")
     st.download_button(
         "Download Test List",
-        data=data,
+        data=export_file.read_bytes,  # read only when the user clicks
         file_name=export_file.name,
         mime=XLSM_MIME_TYPE,
-        type="primary",
         icon=":material/download:",
+        key="btn_download",
+        type="primary",
         on_click="ignore",
     )

@@ -32,3 +32,11 @@ PIPELINE_STAGES: tuple[tuple[str, str, str], ...] = (
     ("test_cases", "Generate test cases", "Test case JSON"),
     ("export", "Build Test List", "Python → Excel/XLSM"),
 )
+
+# Initiative form fields: state key -> label.
+INITIATIVE_LABELS: dict[str, str] = {
+    "name": "Nome iniziativa",
+    "id": "ID iniziativa",
+    "epic": "Epica",
+    "requirement_id": "ID requisito utente",
+}

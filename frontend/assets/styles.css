@@ -1,0 +1,138 @@
+/*
+ * TLGEN look & feel. Colours that Streamlit already themes live in
+ * .streamlit/config.toml; this file only adds what the theme cannot express
+ * (depth, motion, stepper, stage cards). Keep the --tl-* values in sync with
+ * the theme. Selectors target our own classes and `st.container(key=...)`
+ * classes (.st-key-*); `.block-container` is the only Streamlit-internal one
+ * (no native option caps the content width in a wide layout).
+ */
+:root {
+  --tl-primary: #2563EB;
+  --tl-primary-light: #3B82F6;
+  --tl-primary-soft: #93C5FD;
+  --tl-success: #16A34A;
+  --tl-danger: #DC2626;
+  --tl-text: #1F2937;
+  --tl-muted: #4B5563;          /* 7.5:1 on white */
+  --tl-subtle: #6B7280;         /* 4.8:1 on white */
+  --tl-border: #E5E7EB;
+  --tl-surface: #FFFFFF;
+  --tl-surface-alt: #F8FAFC;
+  --tl-radius: 12px;
+  --tl-shadow-sm: 0 1px 2px rgba(16, 24, 40, .05), 0 1px 3px rgba(16, 24, 40, .08);
+  --tl-shadow-md: 0 6px 16px -6px rgba(16, 24, 40, .14), 0 2px 4px rgba(16, 24, 40, .06);
+  --tl-ease: cubic-bezier(.2, .7, .2, 1);
+}
+
+.block-container { max-width: 1100px; }
+
+/* ---------- Header ---------- */
+.tl-eyebrow {
+  font-size: .75rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--tl-primary); font-weight: 600;
+}
+
+/* ---------- Stepper (no native equivalent) ---------- */
+.tl-stepper { display: flex; gap: .5rem; list-style: none; margin: .75rem 0 .5rem; padding: 0; }
+.tl-step { flex: 1; min-width: 0; }
+.tl-step-bar { height: 4px; border-radius: 2px; background: var(--tl-border); overflow: hidden; }
+.tl-step-bar::after { content: ""; display: block; height: 100%; width: 100%; transform-origin: left; }
+.tl-step.done .tl-step-bar::after { background: var(--tl-primary-soft); }
+.tl-step.current .tl-step-bar::after {
+  background: linear-gradient(90deg, var(--tl-primary), var(--tl-primary-light));
+  animation: tl-fill .45s var(--tl-ease);
+}
+.tl-step-label {
+  margin-top: .4rem; font-size: .85rem; color: var(--tl-subtle);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tl-step.done .tl-step-label { color: var(--tl-muted); }
+.tl-step.current .tl-step-label { color: var(--tl-text); font-weight: 600; }
+@keyframes tl-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (max-width: 640px) {
+  .tl-step:not(.current) .tl-step-label { visibility: hidden; }
+}
+
+/* ---------- Step content: soft entrance when the step changes ---------- */
+[class*="st-key-step-body-"] { animation: tl-enter-a .26s var(--tl-ease); }
+.st-key-step-body-1, .st-key-step-body-3 { animation-name: tl-enter-b; }
+.st-key-step-body-4 { animation: none; }  /* redrawn live while generating */
+@keyframes tl-enter-a { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes tl-enter-b { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ---------- Cards: soft depth ---------- */
+[class*="st-key-card-"] {
+  background: var(--tl-surface);
+  border-radius: var(--tl-radius);
+  box-shadow: var(--tl-shadow-sm);
+}
+
+/* ---------- Interactive rows (document list) ---------- */
+[class*="st-key-docrow-"] {
+  border-radius: 8px; padding: 0 .5rem;
+  transition: background-color .15s var(--tl-ease);
+}
+[class*="st-key-docrow-"]:hover { background: var(--tl-surface-alt); }
+
+/* ---------- Call to action buttons ---------- */
+.st-key-btn_continue button, .st-key-btn_generate button,
+.st-key-btn_download button, .st-key-btn_retry button {
+  background-image: linear-gradient(180deg, var(--tl-primary-light), var(--tl-primary));
+  border: 0; color: #fff;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, .35), inset 0 1px 0 rgba(255, 255, 255, .2);
+  transition: transform .15s var(--tl-ease), box-shadow .15s var(--tl-ease), filter .15s;
+}
+.st-key-btn_continue button:hover, .st-key-btn_generate button:hover,
+.st-key-btn_download button:hover, .st-key-btn_retry button:hover {
+  transform: translateY(-1px); filter: brightness(1.04);
+  box-shadow: 0 8px 16px -6px rgba(37, 99, 235, .55), inset 0 1px 0 rgba(255, 255, 255, .2);
+}
+.st-key-btn_continue button:active, .st-key-btn_generate button:active,
+.st-key-btn_download button:active, .st-key-btn_retry button:active {
+  transform: translateY(0); box-shadow: inset 0 2px 4px rgba(0, 0, 0, .2);
+}
+[class*="st-key-btn_back"] button { transition: transform .15s var(--tl-ease), box-shadow .15s var(--tl-ease); }
+[class*="st-key-btn_back"] button:hover:not(:disabled) { transform: translateY(-1px); box-shadow: var(--tl-shadow-md); }
+
+/* ---------- Generation: stage cards ---------- */
+.tl-stage {
+  display: flex; align-items: center; gap: 1rem; padding: .85rem 1rem;
+  background: var(--tl-surface); border: 1px solid var(--tl-border);
+  border-left: 4px solid #D1D5DB; border-radius: var(--tl-radius);
+  box-shadow: var(--tl-shadow-sm);
+}
+.tl-stage-dot {
+  width: 2rem; height: 2rem; border-radius: 50%; flex: none; display: flex;
+  align-items: center; justify-content: center; font-weight: 600;
+  background: #F3F4F6; color: var(--tl-muted);
+}
+.tl-stage-body { flex: 1; min-width: 0; }
+.tl-stage-title { font-weight: 600; }
+.tl-stage-desc, .tl-stage-detail { font-size: .85rem; color: var(--tl-subtle); }
+.tl-stage-detail { margin-top: .15rem; color: #374151; white-space: pre-line; }
+.tl-stage-pill {
+  font-size: .75rem; font-weight: 600; padding: .2rem .65rem; border-radius: 999px;
+  background: #F3F4F6; color: var(--tl-muted); white-space: nowrap;
+}
+.tl-stage.running { border-left-color: var(--tl-primary); background: #F5F9FF; box-shadow: var(--tl-shadow-md); }
+.tl-stage.running .tl-stage-dot { background: var(--tl-primary); color: #fff; animation: tl-pulse 1.4s infinite; }
+.tl-stage.running .tl-stage-pill { background: #DBEAFE; color: #1D4ED8; }
+.tl-stage.done { border-left-color: var(--tl-success); }
+.tl-stage.done .tl-stage-dot { background: var(--tl-success); color: #fff; animation: tl-pop .3s var(--tl-ease); }
+.tl-stage.done .tl-stage-pill { background: #DCFCE7; color: #15803D; }
+.tl-stage.error { border-left-color: var(--tl-danger); background: #FEF7F7; }
+.tl-stage.error .tl-stage-dot { background: var(--tl-danger); color: #fff; }
+.tl-stage.error .tl-stage-pill { background: #FEE2E2; color: #B91C1C; }
+@keyframes tl-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37, 99, 235, .45); }
+  50% { box-shadow: 0 0 0 8px rgba(37, 99, 235, 0); }
+}
+@keyframes tl-pop { 0% { transform: scale(.7); } 70% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* ---------- Respect the user's motion preference ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}

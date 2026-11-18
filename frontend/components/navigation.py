@@ -8,31 +8,50 @@ from frontend.state import AppState, go_to
 from frontend.validation import validate_step
 
 
-def render_navigation(state: AppState) -> None:
-    st.divider()
-    back_col, _, next_col = st.columns([1, 4, 1])
+def render_navigation(state: AppState, locked: bool = False) -> None:
+    """Back / Continue / Generate bar. ``locked`` disables Back (generation running)."""
+    st.space("small")
+    has_next = state.step != PROGRESS_STEP
+    alignment = "distribute" if has_next else "left"
+    errors: list[str] = []
 
-    if back_col.button("Back", disabled=state.step == 0, width="stretch"):
-        go_to(state.step - 1)
-        st.rerun()
-
-    if state.step == PROGRESS_STEP:
-        return
-
-    if state.step == REVIEW_STEP:
-        next_col.button(
-            "Generate Test List",
-            type="primary",
-            width="stretch",
-            on_click=on_generate_clicked,
-        )
-        return
-
-    if next_col.button("Continue", type="primary", width="stretch"):
-        errors = validate_step(state, state.step)
-        if errors:
-            for message in errors:
-                st.error(message)
-        else:
-            go_to(state.step + 1)
+    with st.container(
+        horizontal=True, horizontal_alignment=alignment, vertical_alignment="center"
+    ):
+        # A different key while locked: the same slot is redrawn once the run ends.
+        if st.button(
+            "Back",
+            icon=":material/arrow_back:",
+            key="btn_back_locked" if locked else "btn_back",
+            disabled=state.step == 0 or locked,
+            help="Available when the generation has finished." if locked else None,
+        ):
+            go_to(state.step - 1)
             st.rerun()
+
+        if state.step == REVIEW_STEP:
+            st.button(
+                "Generate Test List",
+                icon=":material/auto_awesome:",
+                key="btn_generate",
+                type="primary",
+                on_click=on_generate_clicked,
+            )
+        elif has_next and st.button(
+            "Continue",
+            icon=":material/arrow_forward:",
+            icon_position="right",
+            key="btn_continue",
+            type="primary",
+        ):
+            errors = validate_step(state, state.step)
+            if not errors:
+                go_to(state.step + 1)
+                st.rerun()
+
+    if errors:
+        st.error(
+            "\n".join(f"- {message}" for message in errors),
+            title="Complete the required information",
+            icon=":material/error:",
+        )

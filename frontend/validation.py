@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
+from frontend.config import INITIATIVE_LABELS
 from frontend.state import AppState
 
-INITIATIVE_LABELS = {
-    "name": "Nome iniziativa",
-    "id": "ID iniziativa",
-    "epic": "Epica",
-    "requirement_id": "ID requisito utente",
-}
+__all__ = ["INITIATIVE_LABELS", "validate_step"]
 
 
 def selected_document_count(state: AppState) -> int:

@@ -12,6 +12,7 @@ from frontend.documents import (
     selected_documents,
 )
 from frontend.state import AppState
+from frontend.ui import card, step_title
 
 
 def render_documents_table(docs: list[DocumentRef]) -> None:
@@ -27,26 +28,27 @@ def render_documents_table(docs: list[DocumentRef]) -> None:
         ],
         hide_index=True,
         width="stretch",
+        alt="Table of the selected documents with type, source and size",
     )
 
 
-def _render_available(state: AppState) -> None:
+def _render_available(state: AppState, available: list[DocumentRef]) -> None:
     st.markdown("#### Available Documents")
     st.caption(f"From `{DOCUMENTS_DIR.name}`")
-    available = list_available_documents(DOCUMENTS_DIR)
     if not available:
         st.info("No documents loaded")
         return
     selected: set[str] = set()
-    for doc in available:
-        name_col, size_col = st.columns([5, 1], vertical_alignment="center")
-        with name_col:
-            checked = st.checkbox(
-                doc.name,
-                value=doc.name in state.selected_repo_documents,
-                key=f"repo_doc_{doc.name}",
-            )
-        size_col.caption(format_size(doc.size_bytes))
+    for index, doc in enumerate(available):
+        with st.container(key=f"docrow-{index}"):
+            name_col, size_col = st.columns([6, 1.3], vertical_alignment="center")
+            with name_col:
+                checked = st.checkbox(
+                    f":material/description: {doc.name}",
+                    value=doc.name in state.selected_repo_documents,
+                    key=f"repo_doc_{doc.name}",
+                )
+            size_col.caption(format_size(doc.size_bytes))
         if checked:
             selected.add(doc.name)
     state.selected_repo_documents = selected
@@ -71,20 +73,29 @@ def _render_upload(state: AppState) -> None:
         args=(state,),
         label_visibility="collapsed",
     )
-    for name, data in list(state.uploaded_documents.items()):
-        name_col, size_col, btn_col = st.columns([5, 2, 1], vertical_alignment="center")
-        name_col.write(name)
-        size_col.caption(format_size(len(data)))
-        if btn_col.button("✕", key=f"rm_{name}", help=f"Remove {name}", type="tertiary"):
-            del state.uploaded_documents[name]
-            st.rerun()
+    for index, (name, data) in enumerate(list(state.uploaded_documents.items())):
+        with st.container(key=f"docrow-upload-{index}"):
+            name_col, size_col, btn_col = st.columns([5, 2, 2], vertical_alignment="center")
+            name_col.write(f":material/description: {name}")
+            size_col.caption(format_size(len(data)))
+            if btn_col.button(
+                "Remove",
+                key=f"rm_{name}",
+                icon=":material/close:",
+                type="tertiary",
+                help=f"Remove {name}",
+            ):
+                del state.uploaded_documents[name]
+                st.rerun()
 
 
-def _render_selected(state: AppState) -> None:
-    docs = selected_documents(state)
-    title_col, count_col = st.columns([4, 1], vertical_alignment="center")
-    title_col.markdown("#### Selected Documents")
-    count_col.badge(f"{len(docs)} selected", color="blue" if docs else "gray")
+def _render_selected(state: AppState, available: list[DocumentRef]) -> None:
+    docs = selected_documents(state, available)
+    with st.container(
+        horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"
+    ):
+        st.markdown("#### Selected Documents")
+        st.badge(f"{len(docs)} selected", color="blue" if docs else "gray")
     if docs:
         render_documents_table(docs)
     else:
@@ -92,10 +103,16 @@ def _render_selected(state: AppState) -> None:
 
 
 def render_documents_step(state: AppState) -> None:
-    left, right = st.columns(2, gap="large")
-    with left, st.container(border=True):
-        _render_available(state)
-    with right, st.container(border=True):
+    step_title(
+        "Documents",
+        ":material/folder_open:",
+        "Choose the documents used to generate the Test List.",
+    )
+    available = list_available_documents(DOCUMENTS_DIR)
+    left, right = st.columns([3, 2], gap="large")  # wider list: file names are long
+    with left, card("available"):
+        _render_available(state, available)
+    with right, card("upload"):
         _render_upload(state)
-    with st.container(border=True):
-        _render_selected(state)
+    with card("selected"):
+        _render_selected(state, available)

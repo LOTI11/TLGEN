@@ -1,12 +1,24 @@
 [theme]
 base = "light"
 primaryColor = "#2563EB"
+linkColor = "#1D4ED8"
 backgroundColor = "#FFFFFF"
 secondaryBackgroundColor = "#F6F7F9"
 textColor = "#1F2937"
-font = "sans serif"
-baseRadius = "8px"
 borderColor = "#E5E7EB"
+font = "sans serif"
+baseRadius = "10px"
+buttonRadius = "8px"
+showWidgetBorder = true
+paddingTop = "2rem"
+paddingBottom = "3rem"
+
+# Semantic colours used by badges and status messages.
+greenColor = "#15803D"
+redColor = "#B91C1C"
+orangeColor = "#B45309"
+blueColor = "#1D4ED8"
+grayColor = "#4B5563"
 
 [client]
 toolbarMode = "minimal"

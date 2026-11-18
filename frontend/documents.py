@@ -40,13 +40,17 @@ def list_available_documents(directory: Path) -> list[DocumentRef]:
     ]
 
 
-def selected_documents(state: AppState) -> list[DocumentRef]:
-    """Current selection (repository + uploaded), in display order."""
-    repo = [
-        d
-        for d in list_available_documents(DOCUMENTS_DIR)
-        if d.name in state.selected_repo_documents
-    ]
+def selected_documents(
+    state: AppState, available: list[DocumentRef] | None = None
+) -> list[DocumentRef]:
+    """Current selection (repository + uploaded), in display order.
+
+    Pass ``available`` (from ``list_available_documents``) to avoid scanning
+    the folder again when the caller already has the listing.
+    """
+    if available is None:
+        available = list_available_documents(DOCUMENTS_DIR)
+    repo = [d for d in available if d.name in state.selected_repo_documents]
     uploaded = [
         DocumentRef(name, "upload", len(data))
         for name, data in state.uploaded_documents.items()
