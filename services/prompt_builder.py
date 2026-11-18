@@ -37,13 +37,15 @@ class InitiativeData:
     requirement_id: str = ""
 
 
-def _json_literal(value: str | None) -> str:
-    """Valore come letterale JSON: testo tra doppi apici (escape inclusi) oppure null."""
+def _json_literal(value: str | int | None) -> str:
+    """Valore come letterale JSON: numero, testo tra doppi apici (escape inclusi) oppure null."""
+    if isinstance(value, int):
+        return str(value)
     text = (value or "").strip()
     return json.dumps(text, ensure_ascii=False) if text else "null"
 
 
-def _fill_placeholders(template: str, values: Mapping[str, str | None]) -> str:
+def _fill_placeholders(template: str, values: Mapping[str, str | int | None]) -> str:
     """Sostituisce ``{{NOME}}`` con il letterale JSON del valore, in un solo passaggio.
 
     Un solo passaggio: un valore dell'utente che contiene a sua volta ``{{...}}``
@@ -104,20 +106,23 @@ def build_requirements_prompt(
 
 def build_test_cases_prompt(
     initiative: InitiativeData | None = None,
+    target_test_count: int | None = None,
     requirements_json_file: Path = REQUIREMENTS_JSON_FILE,
     template_file: Path = TEST_CASES_PROMPT_TEMPLATE,
     output_file: Path = TEST_CASES_PROMPT_FINAL,
 ) -> str:
-    """Prompt 2: template (con il nome iniziativa) + JSON dei requisiti generato dal Prompt 1.
+    """Prompt 2: template (nome iniziativa e numero di test) + JSON dei requisiti del Prompt 1.
 
     ID iniziativa, epica e ID requisito utente non passano da qui: il modello li
-    copia dal file dei requisiti. Il nome iniziativa (macro area) viene inserito
-    nel template; se manca vale ``null``.
+    copia dal file dei requisiti. Il nome iniziativa (macro area) e il numero di
+    test indicativo (linea guida, non limite) vengono inseriti nel template;
+    se mancano (o il numero non è positivo) valgono ``null``.
     """
     initiative = initiative or InitiativeData()
+    guideline = target_test_count if target_test_count and target_test_count > 0 else None
     template = _fill_placeholders(
         _read_text(template_file, "Template del prompt 2"),
-        {"NOME_INIZIATIVA": initiative.name},
+        {"NOME_INIZIATIVA": initiative.name, "NUMERO_CASI_TEST": guideline},
     )
     requirements_json = _read_text(requirements_json_file, "File JSON dei requisiti")
     return _merge_and_save(template, requirements_json, output_file)

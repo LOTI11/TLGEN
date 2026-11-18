@@ -20,8 +20,14 @@ from services.prompt_builder import (  # noqa: E402
     build_test_cases_prompt,
 )
 
-# Placeholders the builders are responsible for (NUMERO_CASI_TEST is not one of them).
-FILLED_PLACEHOLDERS = ("INIZIATIVA_ID", "EPIC_ID", "USER_REQUIREMENT_ID", "NOME_INIZIATIVA")
+# Placeholders the builders are responsible for.
+FILLED_PLACEHOLDERS = (
+    "INIZIATIVA_ID",
+    "EPIC_ID",
+    "USER_REQUIREMENT_ID",
+    "NOME_INIZIATIVA",
+    "NUMERO_CASI_TEST",
+)
 
 INITIATIVE = InitiativeData(
     name="Gestione abbonamento", id="1234567", epic="EP-100", requirement_id="XX12345"
@@ -39,9 +45,12 @@ def requirements_json(tmp_path) -> Path:
     return path
 
 
-def _test_cases_prompt(tmp_path, requirements_json, initiative=INITIATIVE) -> str:
+def _test_cases_prompt(tmp_path, requirements_json, initiative=INITIATIVE, target=None) -> str:
     return build_test_cases_prompt(
-        initiative, requirements_json_file=requirements_json, output_file=tmp_path / "p2.md"
+        initiative,
+        target,
+        requirements_json_file=requirements_json,
+        output_file=tmp_path / "p2.md",
     )
 
 
@@ -73,6 +82,29 @@ def test_prompt2_receives_initiative_name(tmp_path, requirements_json):
 def test_prompt2_missing_name_becomes_null(tmp_path, requirements_json):
     prompt = _test_cases_prompt(tmp_path, requirements_json, None)
     assert "NOME_INIZIATIVA: null" in prompt
+
+
+def test_prompt2_receives_the_test_count_as_a_plain_number(tmp_path, requirements_json):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=23)
+    assert "NUMERO_CASI_TEST = 23" in prompt  # objective section
+    assert "NUMERO_CASI_TEST: 23" in prompt  # real input section
+    assert "NUMERO_CASI_TEST: 20" not in prompt  # the old hard-coded value is gone
+    assert '"23"' not in prompt
+
+
+@pytest.mark.parametrize("target", [None, 0, -5])
+def test_prompt2_without_a_positive_test_count_uses_null(tmp_path, requirements_json, target):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=target)
+    assert "NUMERO_CASI_TEST = null" in prompt
+    assert "NUMERO_CASI_TEST: null" in prompt
+
+
+def test_test_count_is_described_as_a_guideline_in_both_directions():
+    text = TEST_CASES_PROMPT_TEMPLATE.read_text(encoding="utf-8")
+    assert "LINEA GUIDA" in text
+    assert "PIÙ casi di NUMERO_CASI_TEST" in text
+    assert "MENO casi di NUMERO_CASI_TEST" in text
+    assert "avvicinarti il più possibile" in text
 
 
 def test_user_text_is_escaped_and_never_reexpanded(tmp_path, requirements_json):

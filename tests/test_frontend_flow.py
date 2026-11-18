@@ -193,6 +193,45 @@ def test_back_is_enabled_again_once_generation_finishes(docs_dir, monkeypatch):
     assert not any(b.key == "btn_back_locked" for b in at.button)
 
 
+def _generation_state_with_test_cases(at: AppTest, requested: int, generated: int):
+    import json
+
+    state = _state(at)
+    state.step = len(STEPS) - 1
+    state.test_count = requested
+    state.stage_status = {key: STAGE_DONE for key, _, _ in PIPELINE_STAGES}
+    state.test_cases_json = json.dumps({"test_cases": [{} for _ in range(generated)]})
+    return state
+
+
+@pytest.mark.parametrize(
+    ("requested", "generated", "difference"), [(2, 5, "+3"), (8, 5, "-3"), (4, 4, "+0")]
+)
+def test_generation_screen_compares_requested_and_generated_test_cases(
+    docs_dir, tmp_path, requested, generated, difference
+):
+    export = tmp_path / "Export.xlsm"
+    export.write_bytes(b"xlsm")
+    at = _app()
+    _generation_state_with_test_cases(at, requested, generated).export_file = str(export)
+    at.run()
+    assert not at.exception
+    metrics = {m.label: m.value for m in at.metric}
+    assert metrics == {
+        "Requested (guideline)": str(requested),
+        "Generated": str(generated),
+        "Difference": difference,
+    }
+
+
+def test_generation_screen_has_no_comparison_before_test_cases_exist(docs_dir):
+    at = _app()
+    _state(at).step = len(STEPS) - 1
+    at.run()
+    assert not at.exception
+    assert len(at.metric) == 0
+
+
 def test_generation_screen_error_has_no_download(docs_dir):
     at = _app()
     state = _state(at)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -16,7 +17,7 @@ from frontend.state import (
     STAGE_RUNNING,
     AppState,
 )
-from frontend.ui import step_title
+from frontend.ui import card, step_title
 from services.test_list_export import XLSM_MIME_TYPE
 
 # status -> (label, glyph shown in the circle; None = stage number)
@@ -116,6 +117,41 @@ def render_progress_step(state: AppState) -> None:
         _render_error_actions()
     elif all(s == STAGE_DONE for s in state.stage_status.values()):
         _render_completion(state)
+    _render_test_count_summary(state)
+
+
+def _generated_test_count(state: AppState) -> int | None:
+    """Number of test cases in the generated JSON (None while not available)."""
+    if not state.test_cases_json:
+        return None
+    try:
+        items = json.loads(state.test_cases_json).get("test_cases")
+    except (ValueError, AttributeError):
+        return None
+    return len(items) if isinstance(items, list) else None
+
+
+def _render_test_count_summary(state: AppState) -> None:
+    """Requested (guideline) vs generated number of test cases."""
+    generated = _generated_test_count(state)
+    if generated is None:
+        return
+    requested = state.test_count
+    difference = generated - requested
+    with card("test-count"):
+        st.markdown("#### Number of test cases")
+        requested_col, generated_col, difference_col = st.columns(3)
+        requested_col.metric("Requested (guideline)", requested)
+        generated_col.metric("Generated", generated)
+        difference_col.metric("Difference", f"{difference:+d}")
+        if difference == 0:
+            st.caption("The generated number matches the requested one.")
+        else:
+            direction = "more" if difference > 0 else "fewer"
+            st.caption(
+                "The requested number is a guideline, not a limit: "
+                f"{abs(difference)} {direction} test cases than requested were generated."
+            )
 
 
 def _render_error_actions() -> None:
