@@ -217,7 +217,9 @@ def _work_generate_test_cases(state: AppState, report: Callable[[str], None]) ->
 
 def _work_write_prompt2(state: AppState) -> str:
     """Stage 4: merge the Prompt 2 template with the requirements JSON."""
-    prompt = build_test_cases_prompt(_initiative_data(state), state.test_count)
+    prompt = build_test_cases_prompt(
+        _initiative_data(state), state.test_count, state.test_count_mode
+    )
     state.test_cases_prompt = prompt
     return f"Prompt generated · {len(prompt):,} characters"
 

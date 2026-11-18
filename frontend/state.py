@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 
 import streamlit as st
 
-from frontend.config import PIPELINE_STAGES, STEPS
+from frontend.config import DEFAULT_TEST_COUNT_MODE, PIPELINE_STAGES, STEPS
 
 _KEY = "tlgen"
 
@@ -35,6 +35,7 @@ class AppState:
         }
     )
     test_count: int = 0
+    test_count_mode: str = DEFAULT_TEST_COUNT_MODE
     # Pipeline progress, to be updated by the backend integration.
     stage_status: dict[str, str] = field(default_factory=_initial_stage_status)
     stage_detail: dict[str, str] = field(default_factory=dict)

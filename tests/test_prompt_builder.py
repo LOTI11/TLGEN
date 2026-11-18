@@ -27,6 +27,7 @@ FILLED_PLACEHOLDERS = (
     "USER_REQUIREMENT_ID",
     "NOME_INIZIATIVA",
     "NUMERO_CASI_TEST",
+    "MODALITA_NUMERO_CASI_TEST",
 )
 
 INITIATIVE = InitiativeData(
@@ -45,10 +46,13 @@ def requirements_json(tmp_path) -> Path:
     return path
 
 
-def _test_cases_prompt(tmp_path, requirements_json, initiative=INITIATIVE, target=None) -> str:
+def _test_cases_prompt(
+    tmp_path, requirements_json, initiative=INITIATIVE, target=None, mode="indicativo"
+) -> str:
     return build_test_cases_prompt(
         initiative,
         target,
+        mode,
         requirements_json_file=requirements_json,
         output_file=tmp_path / "p2.md",
     )
@@ -97,14 +101,48 @@ def test_prompt2_without_a_positive_test_count_uses_null(tmp_path, requirements_
     prompt = _test_cases_prompt(tmp_path, requirements_json, target=target)
     assert "NUMERO_CASI_TEST = null" in prompt
     assert "NUMERO_CASI_TEST: null" in prompt
+    assert 'MODALITA_NUMERO_CASI_TEST: "indicativo"' in prompt
 
 
-def test_test_count_is_described_as_a_guideline_in_both_directions():
+def test_template_has_both_mode_blocks():
     text = TEST_CASES_PROMPT_TEMPLATE.read_text(encoding="utf-8")
-    assert "LINEA GUIDA" in text
-    assert "PIÙ casi di NUMERO_CASI_TEST" in text
-    assert "MENO casi di NUMERO_CASI_TEST" in text
-    assert "avvicinarti il più possibile" in text
+    for mode in ("indicativo", "preciso"):
+        assert "{{#MODALITA %s}}" % mode in text
+    assert "MODALITÀ: INDICATIVO" in text
+    assert "MODALITÀ: PRECISO" in text
+
+
+def test_indicative_mode_keeps_only_the_impartial_rules(tmp_path, requirements_json):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=60, mode="indicativo")
+    assert "MODALITÀ: INDICATIVO" in prompt
+    assert "NON deve influenzare" in prompt
+    assert "MODALITÀ: PRECISO" not in prompt
+    assert "Genera esattamente NUMERO_CASI_TEST casi" not in prompt
+    assert 'MODALITA_NUMERO_CASI_TEST: "indicativo"' in prompt
+
+
+def test_precise_mode_keeps_only_the_exact_number_rules(tmp_path, requirements_json):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=60, mode="preciso")
+    assert "MODALITÀ: PRECISO" in prompt
+    assert "L'utente richiede esattamente NUMERO_CASI_TEST casi di test" in prompt
+    assert "integrità della" in prompt  # integrity wins when the requirements support fewer
+    assert "MODALITÀ: INDICATIVO" not in prompt
+    assert "NON deve influenzare" not in prompt
+    assert 'MODALITA_NUMERO_CASI_TEST: "preciso"' in prompt
+
+
+@pytest.mark.parametrize(("target", "mode"), [(None, "preciso"), (0, "preciso"), (60, "sconosciuto")])
+def test_mode_falls_back_to_indicative(tmp_path, requirements_json, target, mode):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=target, mode=mode)
+    assert "MODALITÀ: INDICATIVO" in prompt
+    assert "MODALITÀ: PRECISO" not in prompt
+
+
+@pytest.mark.parametrize("mode", ["indicativo", "preciso"])
+def test_no_mode_marker_is_left_in_the_prompt(tmp_path, requirements_json, mode):
+    prompt = _test_cases_prompt(tmp_path, requirements_json, target=10, mode=mode)
+    assert "{{#MODALITA" not in prompt
+    assert "{{/MODALITA}}" not in prompt
 
 
 def test_user_text_is_escaped_and_never_reexpanded(tmp_path, requirements_json):

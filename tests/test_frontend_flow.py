@@ -218,10 +218,40 @@ def test_generation_screen_compares_requested_and_generated_test_cases(
     assert not at.exception
     metrics = {m.label: m.value for m in at.metric}
     assert metrics == {
-        "Requested (guideline)": str(requested),
+        "Requested (indicative)": str(requested),
         "Generated": str(generated),
         "Difference": difference,
     }
+
+
+def test_generation_card_names_the_precise_mode(docs_dir, tmp_path):
+    export = tmp_path / "Export.xlsm"
+    export.write_bytes(b"xlsm")
+    at = _app()
+    state = _generation_state_with_test_cases(at, 6, 4)
+    state.export_file = str(export)
+    state.test_count_mode = "preciso"
+    at.run()
+    assert not at.exception
+    assert {m.label for m in at.metric} == {"Requested (precise)", "Generated", "Difference"}
+    assert any("Precise mode" in c.value for c in at.caption)
+
+
+def test_test_count_mode_defaults_to_indicative_and_is_remembered(docs_dir):
+    at = _fill_initiative(_go_to_initiative(_app()))
+    assert _state(at).step == 2
+    assert at.segmented_control(key="test_count_mode_input").value == "Indicativo"
+    assert _state(at).test_count_mode == "indicativo"
+
+    at.segmented_control(key="test_count_mode_input").set_value("Preciso").run()
+    assert _state(at).test_count_mode == "preciso"
+
+    at.number_input(key="test_count_input").set_value(5).run()
+    at = _click(at, "Continue")  # review
+    assert _state(at).step == STEPS.index("Review")
+    at = _click(at, "Back")
+    assert at.segmented_control(key="test_count_mode_input").value == "Preciso"
+    assert _state(at).test_count_mode == "preciso"
 
 
 def test_generation_screen_has_no_comparison_before_test_cases_exist(docs_dir):

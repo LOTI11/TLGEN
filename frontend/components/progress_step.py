@@ -137,20 +137,26 @@ def _render_test_count_summary(state: AppState) -> None:
     if generated is None:
         return
     requested = state.test_count
+    mode = state.test_count_mode
     difference = generated - requested
     with card("test-count"):
         st.markdown("#### Number of test cases")
         requested_col, generated_col, difference_col = st.columns(3)
-        requested_col.metric("Requested (guideline)", requested)
+        requested_col.metric(f"Requested ({'precise' if mode == 'preciso' else 'indicative'})", requested)
         generated_col.metric("Generated", generated)
         difference_col.metric("Difference", f"{difference:+d}")
         if difference == 0:
             st.caption("The generated number matches the requested one.")
-        else:
+        elif mode == "preciso":
             direction = "more" if difference > 0 else "fewer"
             st.caption(
-                "The requested number is a guideline, not a limit: "
-                f"{abs(difference)} {direction} test cases than requested were generated."
+                f"Precise mode: {abs(difference)} {direction} test cases than requested were "
+                "generated. The integrity of the Test List takes precedence over the number."
+            )
+        else:
+            st.caption(
+                "Indicative mode: the model decided how many test cases the requirements need; "
+                "the requested number was only a reference."
             )
 
 

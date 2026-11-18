@@ -21,6 +21,13 @@ TEST_CASES_PROMPT_TEMPLATE = PROMPT_DIR / "testCaseGenerator.md"
 TEST_CASES_PROMPT_FINAL = FINAL_PROMPT_DIR / "finalTestCases.md"
 
 _PLACEHOLDER = re.compile(r"\{\{([A-Z_]+)\}\}")
+# Alternative blocks of the template: {{#MODALITA nome}} ... {{/MODALITA}} (only one is kept).
+_MODE_BLOCK = re.compile(r"\{\{#MODALITA (\w+)\}\}\n(.*?)\{\{/MODALITA\}\}\n?", re.DOTALL)
+
+# How the user's number of test cases must be used.
+COUNT_MODE_INDICATIVE = "indicativo"  # impartial analysis, the number is only a reference
+COUNT_MODE_PRECISE = "preciso"  # exactly that number, as far as integrity allows
+COUNT_MODES = (COUNT_MODE_INDICATIVE, COUNT_MODE_PRECISE)
 
 
 class PromptBuildError(Exception):
@@ -55,6 +62,11 @@ def _fill_placeholders(template: str, values: Mapping[str, str | int | None]) ->
         lambda m: _json_literal(values[m.group(1)]) if m.group(1) in values else m.group(0),
         template,
     )
+
+
+def _select_mode_blocks(template: str, mode: str) -> str:
+    """Keep only the template blocks of ``mode`` (the model never sees the other rules)."""
+    return _MODE_BLOCK.sub(lambda m: m.group(2) if m.group(1) == mode else "", template)
 
 
 def _read_text(path: Path, description: str) -> str:
@@ -107,22 +119,32 @@ def build_requirements_prompt(
 def build_test_cases_prompt(
     initiative: InitiativeData | None = None,
     target_test_count: int | None = None,
+    count_mode: str = COUNT_MODE_INDICATIVE,
     requirements_json_file: Path = REQUIREMENTS_JSON_FILE,
     template_file: Path = TEST_CASES_PROMPT_TEMPLATE,
     output_file: Path = TEST_CASES_PROMPT_FINAL,
 ) -> str:
-    """Prompt 2: template (nome iniziativa e numero di test) + JSON dei requisiti del Prompt 1.
+    """Prompt 2: template (nome iniziativa, numero di test e modalità) + JSON dei requisiti.
 
     ID iniziativa, epica e ID requisito utente non passano da qui: il modello li
-    copia dal file dei requisiti. Il nome iniziativa (macro area) e il numero di
-    test indicativo (linea guida, non limite) vengono inseriti nel template;
-    se mancano (o il numero non è positivo) valgono ``null``.
+    copia dal file dei requisiti. Il nome iniziativa (macro area) viene inserito
+    nel template; se manca vale ``null``.
+
+    ``count_mode`` decide come usare ``target_test_count``: ``indicativo`` (il modello
+    decide in modo imparziale quanti test servono) o ``preciso`` (esattamente quel
+    numero, nei limiti dell'integrità della test list). Senza un numero positivo la
+    modalità è sempre ``indicativo``.
     """
     initiative = initiative or InitiativeData()
-    guideline = target_test_count if target_test_count and target_test_count > 0 else None
+    number = target_test_count if target_test_count and target_test_count > 0 else None
+    mode = count_mode if number is not None and count_mode in COUNT_MODES else COUNT_MODE_INDICATIVE
     template = _fill_placeholders(
-        _read_text(template_file, "Template del prompt 2"),
-        {"NOME_INIZIATIVA": initiative.name, "NUMERO_CASI_TEST": guideline},
+        _select_mode_blocks(_read_text(template_file, "Template del prompt 2"), mode),
+        {
+            "NOME_INIZIATIVA": initiative.name,
+            "NUMERO_CASI_TEST": number,
+            "MODALITA_NUMERO_CASI_TEST": mode,
+        },
     )
     requirements_json = _read_text(requirements_json_file, "File JSON dei requisiti")
     return _merge_and_save(template, requirements_json, output_file)

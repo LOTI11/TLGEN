@@ -33,6 +33,21 @@ PIPELINE_STAGES: tuple[tuple[str, str, str], ...] = (
     ("export", "Build Test List", "Python → Excel/XLSM"),
 )
 
+# How the requested number of test cases is used: label shown -> value for the prompt.
+TEST_COUNT_MODES: dict[str, str] = {"Indicativo": "indicativo", "Preciso": "preciso"}
+DEFAULT_TEST_COUNT_MODE = "indicativo"
+TEST_COUNT_MODE_HELP: dict[str, str] = {
+    "indicativo": (
+        "Il modello analizza i requisiti e decide quanti test servono per la copertura "
+        "completa, senza essere condizionato dal numero indicato: può generarne meno o più."
+    ),
+    "preciso": (
+        "Il modello genera esattamente il numero indicato, accorpando le condizioni affini o "
+        "dando priorità ai flussi principali. Se i requisiti supportano meno casi, ne genera "
+        "meno per non inventare o duplicare test."
+    ),
+}
+
 # Initiative form fields: state key -> label.
 INITIATIVE_LABELS: dict[str, str] = {
     "name": "Nome iniziativa",
