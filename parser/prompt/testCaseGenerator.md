@@ -395,6 +395,17 @@ Ogni elemento JSON deve quindi avere:
   "expected_result": ""
 }
 
+Regole obbligatorie:
+
+- step_number è un intero sequenziale all'interno dello stesso TestCase;
+- la numerazione parte da 1;
+- ogni valore è incrementato di 1;
+- non utilizzare lettere, stringhe, suffissi o numerazioni miste;
+- step_name deve essere sempre valorizzato con una denominazione sintetica, tecnica e coerente con la funzione dello step;
+- actions_and_data deve rappresentare la causa;
+- expected_result deve rappresentare l'effetto verificabile conseguente;
+- actions_and_data ed expected_result devono avere una verbosità proporzionata al dettaglio disponibile nelle fonti.
+
 ==================================================
 TIPOLOGIE STEP AMMESSE
 ==================================================
@@ -420,6 +431,9 @@ Esempi validi:
 1
 2
 3
+
+Esempi non validi:
+
 "A"
 "B"
 "1A"
@@ -430,66 +444,92 @@ Gli step devono essere ordinati secondo la sequenza funzionale.
 GENERAZIONE DEGLI STEP
 ==================================================
 
-Gli step devono descrivere il percorso necessario per verificare
-la casistica di test SOLO quando tale percorso è ricavabile dai
-requisiti.
+GENERAZIONE DEGLI STEP
+ 
+Gli step devono descrivere il percorso necessario per verificare la casistica di test quando tale percorso è ricavabile dai Requisiti Utente, dalle User Stories e dalle eventuali fonti integrative fornite.
+ 
+Applicare sempre il vincolo NOT OVERLAPPING & NOT REPEAT:
 
+- non duplicare lo stesso passaggio perché presente sia nel requisito sia nella User Story;
+- non creare step semanticamente equivalenti;
+- non ripetere la stessa azione con formulazioni differenti;
+- integrare in un singolo step le informazioni complementari riferite alla stessa operazione;
+- mantenere step distinti per cause, effetti, API, servizi o verifiche funzionalmente differenti. 
+ 
 Ogni step deve essere:
 
 - atomico;
 - chiaro;
 - sequenziale;
 - eseguibile;
-- verificabile.
-
-Quando il requisito descrive esplicitamente un percorso, trasformalo
-in step.
-
+- misurabile;
+- verificabile;
+- non generico;
+- descritto in italiano tecnico;
+- scritto con punteggiatura corretta;
+- formulato in modo asettico e impersonale;
+- basato sui Requisiti Utente, sulle User Stories o sulle eventuali fonti integrative consentite;
+- proporzionato, per dettaglio e verbosità, al livello informativo delle fonti.
+ 
+ 
+Quando il requisito o la User Story descrivono esplicitamente un percorso, trasformalo in step.
+ 
+ 
 Tutti i test devono avere:
-- "Attività Preliminari e/o Precondizioni": informazione necessaria che serve per impostare come deve essere l'ambiente o le caratteristiche di un particolare utente.
-- "Stato Base": la situazione in cui il tester deve trovarsi come step base ovvero punto di partenza (esempio utente loggato in app, utente in pre login oppure app chiusa in partenza).
-- "Azione": suddividere in azioni che il tester deve eseguire al fine di arrivare al risultato finale atteso
-- "Verifica interna" verifica interna app quindi lato FE
-- solo se il test è integrato "Verifica esterna" verifica estern app che comprende sistemi esterni da FE esempio: BE app, BE, one view, etc.. 
 
-Non aggiungere schermate o passaggi intermedi non presenti
-nel requisito.
+- almeno uno step "Attività Preliminari e/o Precondizioni";
+- uno step "Stato Base";
+- uno o più step "Azione";
+- almeno uno step "Verifica interna";
+- uno o più step "Verifica esterna" esclusivamente se il test è Integrato.
+ 
+Non aggiungere schermate o passaggi intermedi non presenti nelle fonti.
+ 
 
 ==================================================
 ATTIVITÀ PRELIMINARI E PRECONDIZIONI
 ==================================================
 
 Utilizza:
+ 
+"Attività Preliminari e/o Precondizioni" 
+ 
+per descrivere le condizioni necessarie all'esecuzione del test, ricavabili dalle fonti.
+ 
+Le precondizioni possono riguardare:
 
-"Attività Preliminari e/o Precondizioni"
-
-quando il requisito contiene una condizione necessaria per
-l'esecuzione del test.
+- ambiente;
+- configurazione documentata;
+- caratteristiche dell'utente;
+- disponibilità di dati o strumenti necessari;
+- stato iniziale di una funzionalità.
 
 Esempio:
 
-Se il requisito dichiara esplicitamente:
-
-abilitatoDisattivazioneSubscriptions = TRUE, la condizione può essere rappresentata come precondizione.
-
-oppure se il requisito dice fare un bonifico o un postagiro, la condizione può essere un utente che dispone di mezzi con saldo per eseguire un bonifico
-
-Non inventare configurazioni necessarie non documentate.
+Se una fonte dichiara esplicitamente "abilitatoDisattivazioneSubscriptions = TRUE", la condizione può essere rappresentata come precondizione.
+ 
+Se il requisito prevede l'esecuzione di un bonifico o postagiro, può essere indicata la disponibilità di un rapporto abilitato e con saldo compatibile con l'operazione, purché tale condizione sia ricavabile logicamente e direttamente dalla funzionalità richiesta senza introdurre dati specifici inventati.
+ 
+Non inventare configurazioni o test data non documentati.
 
 ==================================================
 STATO BASE
 ==================================================
 
 Utilizza:
-
+ 
 "Stato Base"
+ 
+per rappresentare il punto di partenza operativo del tester.
+ 
+Valorizza lo Stato Base come segue:
 
-quando è necessario verificare uno stato iniziale descritto nel requisito prima dell'esecuzione delle azioni.
-
-Quando un test presenta un operatività da fare in app/web di poste, lo stato base deve essere sempre la login
-
-se è un test al di fuori dell'app/web di poste impostare lo stato base in merito a cio che dice il test
-
+- "Pre-login" quando il requisito o la User Story indicano che il flusso parte prima dell'autenticazione;
+- "Post-login" quando il flusso richiede un utente autenticato;
+- "Post-login" come valore predefinito quando lo stato non è esplicitamente indicato e non è possibile determinarlo in modo affidabile;
+- per test esterni all'app o al web di Poste, utilizza lo stato iniziale ricavabile dalle fonti.
+ 
+Non inventare una specifica schermata iniziale se non documentata.
 
 ==================================================
 AZIONE
@@ -505,17 +545,30 @@ per rappresentare operazioni eseguite durante il flusso, come:
 - selezione di un elemento;
 - tap su una CTA;
 - inserimento di un dato;
+- conferma di un'operazione.
 
 ma esclusivamente quando tali operazioni sono documentate
 nel requisito.
 
-esempio se il requisito è eseguire un bonifico da 100€, avremo:
+Ogni azione deve essere:
+- atomica;
+- tecnica;
+- asettica;
+- impersonale;
+- specifica;
+- coerente con la sequenza funzionale;
+- supportata dalle fonti.
+ 
+ 
+Esempio, se le fonti prevedono l'esecuzione di un bonifico da 100 euro:
 
-- accesso alla sezione bonifico,
-- inserimento dati fino a importo
-- inserimento importo a 100€
-- inserimento dati conclusivi
-- conferma operazione
+- accedere alla sezione Bonifico;
+- valorizzare i dati richiesti fino al campo Importo;
+- inserire l'importo di 100 euro;
+- completare i dati conclusivi previsti;
+- confermare l'operazione.
+
+Non utilizzare lo stesso step per aggregare azioni autonome quando le fonti consentono di distinguerle.
 
 ==================================================
 VERIFICA INTERNA
