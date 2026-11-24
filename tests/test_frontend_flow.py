@@ -27,11 +27,15 @@ INITIATIVE_KEYS = ("init_name", "init_id", "init_epic", "init_requirement_id")
 def docs_dir(tmp_path, monkeypatch):
     (tmp_path / "a.md").write_text("# A", encoding="utf-8")
     (tmp_path / "b.md").write_text("# B", encoding="utf-8")
-    import frontend.components.documents_step as documents_step
+    ui_dir = tmp_path / "figma"
+    ui_dir.mkdir()
+    (ui_dir / "home.png").write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    (ui_dir / "flow.pdf").write_bytes(b"%PDF-1.4 fake")
+    (ui_dir / "notes.txt").write_text("ignored", encoding="utf-8")
     import frontend.documents as documents
 
     monkeypatch.setattr(documents, "DOCUMENTS_DIR", tmp_path)
-    monkeypatch.setattr(documents_step, "DOCUMENTS_DIR", tmp_path)
+    monkeypatch.setattr(documents, "UI_DOCUMENTS_DIR", ui_dir)
     return tmp_path
 
 
@@ -80,6 +84,64 @@ def test_documents_selection_is_stored(docs_dir):
     at.checkbox(key="repo_doc_a.md").check().run()
     at.checkbox(key="repo_doc_b.md").check().run()
     assert _state(at).selected_repo_documents == {"a.md", "b.md"}
+
+
+def test_ui_tab_lists_only_png_and_pdf(docs_dir):
+    at = _app()
+    assert at.checkbox(key="ui_doc_home.png")
+    assert at.checkbox(key="ui_doc_flow.pdf")
+    assert not any(c.key == "ui_doc_notes.txt" for c in at.checkbox)
+    # The user story checkboxes are not mixed with the UI ones.
+    assert not any(c.key == "repo_doc_home.png" for c in at.checkbox)
+
+
+def test_ui_selection_is_stored_separately(docs_dir):
+    at = _app()
+    at.checkbox(key="ui_doc_home.png").check().run()
+    at.checkbox(key="repo_doc_a.md").check().run()
+    state = _state(at)
+    assert state.selected_repo_ui == {"home.png"}
+    assert state.selected_repo_documents == {"a.md"}
+
+
+def test_remove_unselects_a_folder_document(docs_dir):
+    at = _app()
+    at.checkbox(key="repo_doc_a.md").check().run()
+    at.checkbox(key="ui_doc_home.png").check().run()
+    at = at.button(key="ui_rm_repository_home.png").click().run()
+    assert not at.exception
+    state = _state(at)
+    assert state.selected_repo_ui == set()
+    assert at.checkbox(key="ui_doc_home.png").value is False
+    assert state.selected_repo_documents == {"a.md"}
+
+
+def test_remove_drops_an_uploaded_document(docs_dir):
+    at = _app()
+    _state(at).uploaded_documents["new.md"] = b"# New"
+    at.run()
+    at = at.button(key="rm_upload_new.md").click().run()
+    assert not at.exception
+    assert _state(at).uploaded_documents == {}
+
+
+def test_ui_designs_alone_are_not_enough(docs_dir):
+    at = _app()
+    at.checkbox(key="ui_doc_home.png").check().run()
+    at = _click(at, "Continue")
+    assert _state(at).step == 0
+    assert at.error
+
+
+def test_review_lists_user_stories_and_ui_designs(docs_dir):
+    at = _app()
+    at.checkbox(key="ui_doc_flow.pdf").check().run()
+    at = _fill_initiative(_go_to_initiative(at))
+    at.number_input(key="test_count_input").set_value(3).run()
+    at = _click(at, "Continue")
+    headings = [m.value for m in at.markdown]
+    assert "#### User stories · 1" in headings
+    assert "#### UI designs · 1" in headings
 
 
 def test_initiative_requires_all_fields(docs_dir):

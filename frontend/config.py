@@ -18,6 +18,14 @@ DOCUMENTS_DIR = Path(
 
 SUPPORTED_EXTENSIONS: tuple[str, ...] = ("md",)
 
+# Directory scanned for the "UI designs" tab (screens exported from Figma).
+# Override with the TLGEN_UI_DIR environment variable.
+UI_DOCUMENTS_DIR = Path(
+    os.environ.get("TLGEN_UI_DIR", PROJECT_ROOT / "data" / "input" / "figma")
+)
+
+UI_EXTENSIONS: tuple[str, ...] = ("png", "pdf")
+
 STEPS: tuple[str, ...] = ("Documents", "Initiative", "Test Data", "Review", "Generation")
 
 REVIEW_STEP = 3
@@ -28,8 +36,9 @@ PIPELINE_STAGES: tuple[tuple[str, str, str], ...] = (
     ("inputs", "Prepare inputs", "Documents and user data"),
     ("prompt1", "Write prompt 1", "Requirements extraction prompt"),
     ("requirements", "Generate requirements", "Requirements JSON"),
-    ("prompt2", "Write prompt 2", "Test case generation prompt"),
-    ("test_cases", "Generate test cases", "Test case JSON"),
+    ("ui", "Analyze UI designs", "Figma screens → UI spec JSON"),
+    ("prompt2", "Plan test cases", "Split by user story"),
+    ("test_cases", "Generate test cases", "Case list and steps per user story, checked"),
     ("export", "Build Test List", "Python → Excel/XLSM"),
 )
 

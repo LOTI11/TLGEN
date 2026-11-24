@@ -9,12 +9,16 @@ __all__ = ["INITIATIVE_LABELS", "validate_step"]
 
 
 def selected_document_count(state: AppState) -> int:
+    """Selected user stories (the UI designs are optional and not counted)."""
     return len(state.selected_repo_documents) + len(state.uploaded_documents)
 
 
 def validate_documents(state: AppState) -> list[str]:
     if selected_document_count(state) == 0:
-        return ["Select at least one document or upload a new one."]
+        return [
+            "Select at least one user story (.md) or upload a new one: "
+            "the UI designs alone are not enough."
+        ]
     return []
 
 

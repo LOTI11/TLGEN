@@ -26,6 +26,10 @@ class AppState:
     selected_repo_documents: set[str] = field(default_factory=set)
     uploaded_documents: dict[str, bytes] = field(default_factory=dict)
     uploader_nonce: int = 0
+    # UI designs (PNG/PDF exported from Figma): optional, same structure as above.
+    selected_repo_ui: set[str] = field(default_factory=set)
+    uploaded_ui: dict[str, bytes] = field(default_factory=dict)
+    ui_uploader_nonce: int = 0
     initiative: dict[str, str] = field(
         default_factory=lambda: {
             "name": "",
@@ -40,12 +44,15 @@ class AppState:
     stage_status: dict[str, str] = field(default_factory=_initial_stage_status)
     stage_detail: dict[str, str] = field(default_factory=dict)
     generation_pending: bool = False
-    # Output of stage 1 (Prepare inputs): input text for Prompt 1.
+    # Output of stage 1 (Prepare inputs): input text for Prompt 1, also per document.
     requirements_text: str = ""
+    source_texts: list[str] = field(default_factory=list)
     # Output of stage 2 (Write prompt 1): final prompt sent to the model.
     requirements_prompt: str = ""
     # Output of stage 3 (Generate requirements): formatted requirements JSON.
     requirements_json: str = ""
+    # Output of the UI stage: formatted UI spec JSON ("" = no UI designs selected).
+    ui_spec_json: str = ""
     # Output of stage 4 (Write prompt 2): final prompt for test case generation.
     test_cases_prompt: str = ""
     # Output of stage 5 (Generate test cases): formatted test cases JSON.
@@ -78,8 +85,10 @@ def reset_pipeline() -> None:
     state.stage_status = _initial_stage_status()
     state.stage_detail = {}
     state.requirements_text = ""
+    state.source_texts = []
     state.requirements_prompt = ""
     state.requirements_json = ""
+    state.ui_spec_json = ""
     state.test_cases_prompt = ""
     state.test_cases_json = ""
     state.export_file = ""
