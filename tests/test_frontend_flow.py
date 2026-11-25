@@ -104,6 +104,45 @@ def test_ui_selection_is_stored_separately(docs_dir):
     assert state.selected_repo_documents == {"a.md"}
 
 
+def test_select_all_checks_and_unchecks_every_folder_document(docs_dir):
+    at = _app()
+    at = at.checkbox(key="select_all").check().run()
+    assert not at.exception
+    assert _state(at).selected_repo_documents == {"a.md", "b.md"}
+    assert at.checkbox(key="repo_doc_a.md").value and at.checkbox(key="repo_doc_b.md").value
+    assert _state(at).selected_repo_ui == set()  # the UI box is independent
+
+    at = at.checkbox(key="select_all").uncheck().run()
+    assert _state(at).selected_repo_documents == set()
+    assert not at.checkbox(key="repo_doc_a.md").value
+
+
+def test_select_all_works_for_ui_designs(docs_dir):
+    at = _app()
+    at = at.checkbox(key="ui_select_all").check().run()
+    assert _state(at).selected_repo_ui == {"home.png", "flow.pdf"}
+    assert _state(at).selected_repo_documents == set()
+
+
+def test_select_all_follows_the_single_checkboxes(docs_dir):
+    at = _app()
+    at.checkbox(key="repo_doc_a.md").check().run()
+    assert at.checkbox(key="select_all").value is False
+    at = at.checkbox(key="repo_doc_b.md").check().run()
+    assert at.checkbox(key="select_all").value is True
+    at = at.checkbox(key="repo_doc_a.md").uncheck().run()
+    assert at.checkbox(key="select_all").value is False
+
+
+def test_selection_survives_going_to_the_next_step_and_back(docs_dir):
+    at = _app()
+    at = at.checkbox(key="ui_select_all").check().run()
+    at = _go_to_initiative(at)
+    at = _click(at, "Back")
+    assert at.checkbox(key="repo_doc_a.md").value
+    assert at.checkbox(key="ui_doc_home.png").value and at.checkbox(key="ui_select_all").value
+
+
 def test_remove_unselects_a_folder_document(docs_dir):
     at = _app()
     at.checkbox(key="repo_doc_a.md").check().run()

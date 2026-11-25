@@ -85,12 +85,38 @@ def _store_uploads(state: AppState, group: DocumentGroup) -> None:
     setattr(state, group.nonce_attr, getattr(state, group.nonce_attr) + 1)
 
 
+def _select_all_key(group: DocumentGroup) -> str:
+    return f"{_prefix(group)}select_all"
+
+
+def _toggle_all(state: AppState, group: DocumentGroup, available: list[DocumentRef]) -> None:
+    """Callback of "Select all": check or uncheck every document of the folder."""
+    checked = bool(st.session_state.get(_select_all_key(group)))
+    for doc in available:
+        st.session_state[_checkbox_key(group, doc.name)] = checked
+    group.set_selected_names(state, {d.name for d in available} if checked else set())
+
+
 def _render_available(state: AppState, group: DocumentGroup, available: list[DocumentRef]) -> None:
     st.caption(f"From the `{group.directory().name}` folder")
     if not available:
         st.info("No documents in the folder.", icon=":material/folder_off:")
         return
     current = group.selected_names(state)
+    # The checkbox states live in the session state (seeded from the saved selection),
+    # so "Select all" can change them without conflicting with a value= argument.
+    for doc in available:
+        st.session_state.setdefault(_checkbox_key(group, doc.name), doc.name in current)
+    # Before the widget is created in this run: follows the single checkboxes.
+    st.session_state[_select_all_key(group)] = all(
+        st.session_state[_checkbox_key(group, d.name)] for d in available
+    )
+    st.checkbox(
+        f"Select all ({len(available)})",
+        key=_select_all_key(group),
+        on_change=_toggle_all,
+        args=(state, group, available),
+    )
     selected: set[str] = set()
     for index, doc in enumerate(available):
         with st.container(key=f"docrow-{_prefix(group)}{index}"):
@@ -98,7 +124,6 @@ def _render_available(state: AppState, group: DocumentGroup, available: list[Doc
             with name_col:
                 checked = st.checkbox(
                     f"{_icon(doc.name)} {doc.name}",
-                    value=doc.name in current,
                     key=_checkbox_key(group, doc.name),
                 )
             size_col.caption(format_size(doc.size_bytes))
