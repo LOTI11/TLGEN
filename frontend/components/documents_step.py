@@ -4,15 +4,52 @@ from pathlib import Path
 
 import streamlit as st
 
-from frontend.config import DOCUMENTS_DIR, SUPPORTED_EXTENSIONS
 from frontend.documents import (
+    UI_DESIGNS,
+    USER_STORIES,
+    DocumentGroup,
     DocumentRef,
     format_size,
-    list_available_documents,
+    list_group_documents,
     selected_documents,
 )
 from frontend.state import AppState
 from frontend.ui import card, step_title
+
+_FILE_ICONS = {
+    ".md": ":material/description:",
+    ".png": ":material/image:",
+    ".pdf": ":material/picture_as_pdf:",
+}
+
+# Per group: box title, icon, caption and the label shown in the selected list.
+_GROUP_TEXT = {
+    "stories": (
+        "User stories",
+        ":material/description:",
+        "Required. The functional source of the requirements and of the test cases.",
+        "User story",
+    ),
+    "ui": (
+        "UI designs",
+        ":material/palette:",
+        "Optional. Screens exported from Figma: several PNG and PDF files are analyzed together.",
+        "UI design",
+    ),
+}
+
+
+def _icon(name: str) -> str:
+    return _FILE_ICONS.get(Path(name).suffix.lower(), ":material/draft:")
+
+
+def _prefix(group: DocumentGroup) -> str:
+    """Widget-key prefix: none for the user stories (keys kept as before), ``ui_`` for UI."""
+    return "" if group is USER_STORIES else f"{group.key}_"
+
+
+def _checkbox_key(group: DocumentGroup, name: str) -> str:
+    return f"{_prefix(group) or 'repo_'}doc_{name}"
 
 
 def render_documents_table(docs: list[DocumentRef]) -> None:
@@ -32,87 +69,152 @@ def render_documents_table(docs: list[DocumentRef]) -> None:
     )
 
 
-def _render_available(state: AppState, available: list[DocumentRef]) -> None:
-    st.markdown("#### Available Documents")
-    st.caption(f"From `{DOCUMENTS_DIR.name}`")
+# ---------------------------------------------------------------- input boxes
+
+
+def _uploader_key(state: AppState, group: DocumentGroup) -> str:
+    return f"{_prefix(group)}uploader_{getattr(state, group.nonce_attr)}"
+
+
+def _store_uploads(state: AppState, group: DocumentGroup) -> None:
+    files = st.session_state.get(_uploader_key(state, group)) or []
+    uploaded = group.uploaded(state)
+    for f in files:
+        uploaded[f.name] = f.getvalue()
+    # Reset the widget; the files now live in the state and in the selected list.
+    setattr(state, group.nonce_attr, getattr(state, group.nonce_attr) + 1)
+
+
+def _select_all_key(group: DocumentGroup) -> str:
+    return f"{_prefix(group)}select_all"
+
+
+def _toggle_all(state: AppState, group: DocumentGroup, available: list[DocumentRef]) -> None:
+    """Callback of "Select all": check or uncheck every document of the folder."""
+    checked = bool(st.session_state.get(_select_all_key(group)))
+    for doc in available:
+        st.session_state[_checkbox_key(group, doc.name)] = checked
+    group.set_selected_names(state, {d.name for d in available} if checked else set())
+
+
+def _render_available(state: AppState, group: DocumentGroup, available: list[DocumentRef]) -> None:
+    st.caption(f"From the `{group.directory().name}` folder")
     if not available:
-        st.info("No documents loaded")
+        st.info("No documents in the folder.", icon=":material/folder_off:")
         return
+    current = group.selected_names(state)
+    # The checkbox states live in the session state (seeded from the saved selection),
+    # so "Select all" can change them without conflicting with a value= argument.
+    for doc in available:
+        st.session_state.setdefault(_checkbox_key(group, doc.name), doc.name in current)
+    # Before the widget is created in this run: follows the single checkboxes.
+    st.session_state[_select_all_key(group)] = all(
+        st.session_state[_checkbox_key(group, d.name)] for d in available
+    )
+    st.checkbox(
+        f"Select all ({len(available)})",
+        key=_select_all_key(group),
+        on_change=_toggle_all,
+        args=(state, group, available),
+    )
     selected: set[str] = set()
     for index, doc in enumerate(available):
-        with st.container(key=f"docrow-{index}"):
-            name_col, size_col = st.columns([6, 1.3], vertical_alignment="center")
+        with st.container(key=f"docrow-{_prefix(group)}{index}"):
+            name_col, size_col = st.columns([6, 1.5], vertical_alignment="center")
             with name_col:
                 checked = st.checkbox(
-                    f":material/description: {doc.name}",
-                    value=doc.name in state.selected_repo_documents,
-                    key=f"repo_doc_{doc.name}",
+                    f"{_icon(doc.name)} {doc.name}",
+                    key=_checkbox_key(group, doc.name),
                 )
             size_col.caption(format_size(doc.size_bytes))
         if checked:
             selected.add(doc.name)
-    state.selected_repo_documents = selected
+    group.set_selected_names(state, selected)
 
 
-def _store_uploads(state: AppState) -> None:
-    files = st.session_state.get(f"uploader_{state.uploader_nonce}") or []
-    for f in files:
-        state.uploaded_documents[f.name] = f.getvalue()
-    state.uploader_nonce += 1  # reset the widget; files now live in state
+def _render_input_box(state: AppState, group: DocumentGroup) -> None:
+    title, icon, caption, _ = _GROUP_TEXT[group.key]
+    with card(f"{_prefix(group)}input"):
+        st.markdown(f"#### {icon} {title}")
+        st.caption(caption)
+        st.file_uploader(
+            f"Upload {title.lower()} (" + ", ".join(f".{e}" for e in group.extensions) + ")",
+            type=list(group.extensions),
+            accept_multiple_files=True,
+            key=_uploader_key(state, group),
+            on_change=_store_uploads,
+            args=(state, group),
+        )
+        _render_available(state, group, list_group_documents(group))
 
 
-def _render_upload(state: AppState) -> None:
-    st.markdown("#### Upload Documents")
-    st.caption("Supported: " + ", ".join(f".{e}" for e in SUPPORTED_EXTENSIONS))
-    st.file_uploader(
-        "Drag and drop files here",
-        type=list(SUPPORTED_EXTENSIONS),
-        accept_multiple_files=True,
-        key=f"uploader_{state.uploader_nonce}",
-        on_change=_store_uploads,
-        args=(state,),
-        label_visibility="collapsed",
-    )
-    for index, (name, data) in enumerate(list(state.uploaded_documents.items())):
-        with st.container(key=f"docrow-upload-{index}"):
-            name_col, size_col, btn_col = st.columns([5, 2, 2], vertical_alignment="center")
-            name_col.write(f":material/description: {name}")
-            size_col.caption(format_size(len(data)))
-            if btn_col.button(
+# ---------------------------------------------------------------- selected list
+
+
+def _remove(state: AppState, group: DocumentGroup, ref: DocumentRef) -> None:
+    """Callback of the Remove button: unselect a folder file or drop an uploaded one."""
+    if ref.source == "repository":
+        group.selected_names(state).discard(ref.name)
+        st.session_state[_checkbox_key(group, ref.name)] = False  # allowed in a callback
+    else:
+        group.uploaded(state).pop(ref.name, None)
+
+
+def _render_selected_rows(state: AppState, group: DocumentGroup, docs: list[DocumentRef]) -> None:
+    label = _GROUP_TEXT[group.key][3]
+    for index, doc in enumerate(docs):
+        with st.container(key=f"docrow-{_prefix(group)}selected-{index}"):
+            name_col, info_col, btn_col = st.columns([6, 3, 1.6], vertical_alignment="center")
+            name_col.write(f"{_icon(doc.name)} {doc.name}")
+            source = "Folder" if doc.source == "repository" else "Uploaded"
+            info_col.caption(f"{label} · {source} · {format_size(doc.size_bytes)}")
+            btn_col.button(
                 "Remove",
-                key=f"rm_{name}",
+                key=f"{_prefix(group)}rm_{doc.source}_{doc.name}",
                 icon=":material/close:",
                 type="tertiary",
-                help=f"Remove {name}",
-            ):
-                del state.uploaded_documents[name]
-                st.rerun()
+                help=f"Remove {doc.name}",
+                on_click=_remove,
+                args=(state, group, doc),
+            )
 
 
-def _render_selected(state: AppState, available: list[DocumentRef]) -> None:
-    docs = selected_documents(state, available)
-    with st.container(
-        horizontal=True, horizontal_alignment="distribute", vertical_alignment="center"
-    ):
-        st.markdown("#### Selected Documents")
-        st.badge(f"{len(docs)} selected", color="blue" if docs else "gray")
-    if docs:
-        render_documents_table(docs)
-    else:
-        st.caption("No documents selected.")
+def _render_selected(state: AppState) -> None:
+    stories = selected_documents(state, group=USER_STORIES)
+    designs = selected_documents(state, group=UI_DESIGNS)
+    with card("selected"):
+        with st.container(horizontal=True, vertical_alignment="center"):
+            st.markdown("#### Selected documents")
+            st.space("stretch")
+            st.badge(
+                f"{len(stories)} user {'story' if len(stories) == 1 else 'stories'}",
+                icon=":material/description:",
+                color="blue" if stories else "gray",
+            )
+            st.badge(
+                f"{len(designs)} UI {'design' if len(designs) == 1 else 'designs'}",
+                icon=":material/palette:",
+                color="violet" if designs else "gray",
+            )
+        if not stories and not designs:
+            st.caption("No documents selected. Choose at least one user story.")
+            return
+        _render_selected_rows(state, USER_STORIES, stories)
+        _render_selected_rows(state, UI_DESIGNS, designs)
+        if not designs:
+            st.caption("No UI designs: the test cases will use the user stories only.")
 
 
 def render_documents_step(state: AppState) -> None:
     step_title(
         "Documents",
         ":material/folder_open:",
-        "Choose the documents used to generate the Test List.",
+        "Choose the user stories and, optionally, the UI designs used to generate the Test List.",
     )
-    available = list_available_documents(DOCUMENTS_DIR)
-    left, right = st.columns([3, 2], gap="large")  # wider list: file names are long
-    with left, card("available"):
-        _render_available(state, available)
-    with right, card("upload"):
-        _render_upload(state)
-    with card("selected"):
-        _render_selected(state, available)
+    stories_col, ui_col = st.columns(2, gap="large")
+    with stories_col:
+        _render_input_box(state, USER_STORIES)
+    with ui_col:
+        _render_input_box(state, UI_DESIGNS)
+    # Drawn after the boxes so it reflects the checkboxes of this run.
+    _render_selected(state)

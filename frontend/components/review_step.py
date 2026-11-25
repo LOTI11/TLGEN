@@ -3,7 +3,7 @@ from __future__ import annotations
 import streamlit as st
 
 from frontend.components.documents_step import render_documents_table
-from frontend.documents import selected_documents
+from frontend.documents import UI_DESIGNS, USER_STORIES, selected_documents
 from frontend.state import AppState
 from frontend.ui import card, initiative_grid, labeled_value, step_title
 
@@ -27,9 +27,17 @@ def render_review_step(state: AppState) -> None:
         labeled_value(mode_col, "Come usare il numero", state.test_count_mode.capitalize())
 
     with card("review-documents"):
-        docs = selected_documents(state)
-        st.markdown(f"#### Documents · {len(docs)}")
+        docs = selected_documents(state, group=USER_STORIES)
+        st.markdown(f"#### User stories · {len(docs)}")
         if docs:
             render_documents_table(docs)
         else:
-            st.caption("No documents selected.")
+            st.caption("No user stories selected.")
+
+    with card("review-ui"):
+        designs = selected_documents(state, group=UI_DESIGNS)
+        st.markdown(f"#### UI designs · {len(designs)}")
+        if designs:
+            render_documents_table(designs)
+        else:
+            st.caption("No UI designs: the test cases will use the user stories only.")

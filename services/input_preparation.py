@@ -88,6 +88,14 @@ def build_requirements_text(
     Se uno o più documenti non sono leggibili solleva un unico DocumentReadError
     che li elenca tutti.
     """
+    return "\n".join(read_documents(documents, on_progress))
+
+
+def read_documents(
+    documents: Sequence[SourceDocument],
+    on_progress: ProgressCallback | None = None,
+) -> list[str]:
+    """Testo di ogni documento, già racchiuso tra i delimitatori FILE / FINE FILE."""
     if not documents:
         raise DocumentReadError("Nessun documento selezionato.")
 
@@ -105,7 +113,7 @@ def build_requirements_text(
 
     if errors:
         raise DocumentReadError("\n".join(errors))
-    return "\n".join(contents)
+    return contents
 
 
 def save_requirements_text(text: str, path: Path = REQUIREMENTS_TEXT_FILE) -> Path:

@@ -34,7 +34,8 @@ STAGE_OUTPUTS: dict[str, tuple[str, str, str | None]] = {
     "inputs": ("Prepared input (requirements text)", "requirements_text", None),
     "prompt1": ("Prompt 1 (final prompt)", "requirements_prompt", None),
     "requirements": ("Requirements (JSON)", "requirements_json", "json"),
-    "prompt2": ("Prompt 2 (final prompt)", "test_cases_prompt", None),
+    "ui": ("UI spec from Figma (JSON)", "ui_spec_json", "json"),
+    "prompt2": ("Plan by user story", "test_cases_prompt", None),
     "test_cases": ("Test cases (JSON)", "test_cases_json", "json"),
 }
 

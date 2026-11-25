@@ -1,11 +1,30 @@
 import os
+import time
+from collections.abc import Sequence
 from pathlib import Path
+from typing import Any
 
 # Carica le impostazioni dal file .env, se presente.
 from dotenv import load_dotenv
 # SDK Google per chiamare Gemini tramite Vertex AI e leggere le credenziali.
 from google import genai
+from google.genai import errors, types
 from google.oauth2 import service_account
+
+from services.llm_types import (
+    Attachment,
+    IncompleteResponseError,
+    LlmResult,
+    StatusCallback,
+    TruncatedResponseError,
+)
+
+# Massimo di token in uscita di Gemini 2.5 Flash (ragionamento incluso).
+MAX_OUTPUT_TOKENS = 65535
+# Attese (secondi) prima di ripetere una chiamata rifiutata per quota (429) o
+# per indisponibilità temporanea del servizio (500/503).
+RETRY_DELAYS = (20, 40, 60, 90, 120)
+_RETRYABLE_CODES = {429, 500, 503}
 
 
 class GeminiService:
@@ -77,3 +96,102 @@ class GeminiService:
 
         # Restituisce al chiamante il testo generato da Gemini.
         return response.text
+
+    def generate_response_with_files(
+        self, prompt: str, files: Sequence[tuple[str, bytes, str]]
+    ) -> str:
+        """Invia il prompt insieme a dei file (immagini, PDF) nella stessa richiesta.
+
+        ``files`` contiene tuple (nome, contenuto, mime type). Ogni file è
+        preceduto da una riga "FILE: nome" così il modello può citarlo.
+        """
+        if not prompt.strip():
+            raise ValueError("Il prompt non può essere vuoto.")
+        if not files:
+            raise ValueError("Nessun file da inviare.")
+
+        response = self.client.models.generate_content(
+            model=self.model, contents=self._contents(prompt, files)
+        )
+        if response.text is None:
+            raise RuntimeError("Gemini non ha restituito testo.")
+        return response.text
+
+    @staticmethod
+    def _contents(prompt: str, files: Sequence[Attachment]) -> list[types.Part]:
+        contents: list[types.Part] = [types.Part.from_text(text=prompt)]
+        for name, data, mime_type in files:
+            contents.append(types.Part.from_text(text=f"FILE: {name}"))
+            contents.append(types.Part.from_bytes(data=data, mime_type=mime_type))
+        return contents
+
+    def generate_json(
+        self,
+        prompt: str,
+        *,
+        files: Sequence[Attachment] = (),
+        schema: Any = None,
+        thinking_budget: int | None = None,
+        on_status: StatusCallback | None = None,
+    ) -> LlmResult:
+        """Chiede una risposta JSON e verifica che sia completa.
+
+        - ``schema`` (modello Pydantic) obbliga la risposta ad avere quei campi e valori;
+        - ``thinking_budget`` limita i token di ragionamento, che altrimenti consumano
+          il massimo di token in uscita;
+        - se la risposta è troncata solleva ``TruncatedResponseError`` (il chiamante
+          divide il lavoro), se è bloccata ``IncompleteResponseError``;
+        - quota esaurita (429) o servizio non disponibile (500/503): attende e riprova.
+        """
+        if not prompt.strip():
+            raise ValueError("Il prompt non può essere vuoto.")
+        config = types.GenerateContentConfig(
+            response_mime_type="application/json",
+            response_schema=schema,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
+            thinking_config=(
+                types.ThinkingConfig(thinking_budget=thinking_budget)
+                if thinking_budget is not None
+                else None
+            ),
+        )
+        contents = self._contents(prompt, files) if files else prompt
+
+        for attempt, delay in enumerate((*RETRY_DELAYS, None), start=1):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model, contents=contents, config=config
+                )
+                break
+            except errors.APIError as exc:
+                if exc.code not in _RETRYABLE_CODES or delay is None:
+                    raise
+                if on_status:
+                    reason = "quota reached" if exc.code == 429 else f"service error {exc.code}"
+                    on_status(f"Gemini {reason}: waiting {delay}s (retry {attempt})…")
+                self._sleep(delay)
+
+        return self._result(response)
+
+    _sleep = staticmethod(time.sleep)
+
+    @staticmethod
+    def _result(response: Any) -> LlmResult:
+        candidate = (response.candidates or [None])[0]
+        finish = getattr(candidate, "finish_reason", None)
+        finish_name = getattr(finish, "name", None) or (str(finish) if finish else "STOP")
+        usage = response.usage_metadata
+        result = LlmResult(
+            text=response.text or "",
+            finish_reason=finish_name,
+            prompt_tokens=getattr(usage, "prompt_token_count", None),
+            output_tokens=getattr(usage, "candidates_token_count", None),
+            thoughts_tokens=getattr(usage, "thoughts_token_count", None),
+        )
+        if finish_name == "MAX_TOKENS":
+            raise TruncatedResponseError(result)
+        if finish_name not in ("STOP", "FINISH_REASON_UNSPECIFIED") or not result.text.strip():
+            raise IncompleteResponseError(
+                f"Gemini non ha completato la risposta (motivo: {finish_name}; {result.usage()})."
+            )
+        return result
