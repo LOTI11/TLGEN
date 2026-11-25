@@ -1,0 +1,386 @@
+{
+  "_descrizione": [
+    "Step di riempimento della modalità Test Boost.",
+    "Si usano SOLO con Test Boost attivo e SOLO per i casi che non raggiungono il minimo di step della propria fascia.",
+    "Il codice aggiunge gli step in ordine di 'priorità' (1 = prima) fino al minimo esatto, mai oltre.",
+    "Non si inventano schermate o dati: i segnaposto si riempiono con la SPECIFICA UI e con i campi del caso di test.",
+    "Uno step non si aggiunge se un segnaposto resta vuoto o se lo stesso controllo è già presente nel caso.",
+    "'obbligatorio_fasce': elenco di fasce ('Oltre 25', '21-25', '11-20', '6-10') in cui il modello entra per primo in ogni caso completato, prima di tutti gli altri."
+  ],
+  "segnaposti": {
+    "{schermata}": "nome della schermata della SPECIFICA UI raggiunta dal caso (citata tra apici negli step generati)",
+    "{elemento}": "etichetta dell'elemento della schermata (titolo, testo, CTA, campo, card, link, ...)",
+    "{valore}": "valore o placeholder dell'elemento, quando documentato",
+    "{funzionalita}": "macro funzionalità del caso di test (test_case_macro_funzionalita)"
+  },
+  "posizioni": {
+    "inizio": "prima dello Stato Base, dopo le precondizioni generate dal modello",
+    "dopo_schermata": "subito dopo lo step in cui la schermata viene raggiunta, prima delle azioni successive",
+    "fine": "in fondo al caso, dopo l'ultimo step generato dal modello"
+  },
+  "condizioni": {
+    "element_type": "tipo dell'elemento della SPECIFICA UI ('*' = qualsiasi tipo)",
+    "enabled / required": "proprietà dell'elemento nella SPECIFICA UI (true/false)",
+    "valore": "true = l'elemento ha un valore o placeholder documentato, false = non lo ha",
+    "funzionalita": "true = il caso ha una macro funzionalità valorizzata",
+    "ui": "true = sono stati forniti design UI (Figma) per la generazione",
+    "test_type": "tipo del caso di test: 'Funzionale' o 'Integrato'",
+    "stato_base": "valore dello Stato Base del caso: 'Pre-login' o 'Post-login'"
+  },
+  "limiti_per_caso": {
+    "precondizioni": 5,
+    "verifica_schermata": null,
+    "verifica_elemento": null,
+    "chiusura": 4,
+    "operativita": null
+  },
+  "_operativita_istruzioni": [
+    "Blocchi di step di default per una operatività (es. autorizzazione PosteID, esito operazione).",
+    "Un blocco si inserisce SOLO se uno step generato dal modello contiene una delle 'parole_chiave' (maiuscole/minuscole indifferenti).",
+    "Se il caso contiene una delle 'escludi_se', il blocco non si inserisce (es. il modello ha già dettagliato l'operazione).",
+    "Gli step del blocco vanno subito prima o subito dopo lo step che contiene la parola chiave ('posizione': 'prima_step' o 'dopo_step'), nell'ordine scritto.",
+    "Ogni step del blocco ha i 4 campi di sempre; uno step il cui controllo è già presente nel caso viene saltato.",
+    "'attivo': false = il blocco è scritto ma non viene usato (utile per prepararlo e attivarlo dopo la revisione)."
+  ],
+  "operativita": [
+    {
+      "id": "OP-ESEMPIO-POSTEID",
+      "nome": "Autorizzazione con PosteID (ESEMPIO da rivedere)",
+      "attivo": false,
+      "priorita": 1,
+      "parole_chiave": ["PosteID"],
+      "escludi_se": ["codice PosteID"],
+      "posizione": "dopo_step",
+      "applicabile_se": {"stato_base": "Post-login"},
+      "steps": [
+        {
+          "step_type": "Verifica interna",
+          "step_name": "Verifica richiesta autorizzazione PosteID",
+          "actions_and_data": "Controllo della schermata di autorizzazione visualizzata",
+          "expected_result": "È visualizzata la richiesta di autorizzazione dell'operazione con PosteID"
+        },
+        {
+          "step_type": "Azione",
+          "step_name": "Inserimento codice PosteID",
+          "actions_and_data": "Inserire il codice PosteID dell'utenza di test",
+          "expected_result": "Il codice PosteID è inserito"
+        },
+        {
+          "step_type": "Azione",
+          "step_name": "Conferma autorizzazione",
+          "actions_and_data": "Tap sulla CTA di conferma dell'autorizzazione",
+          "expected_result": "L'autorizzazione è inviata"
+        },
+        {
+          "step_type": "Verifica interna",
+          "step_name": "Verifica esito autorizzazione",
+          "actions_and_data": "Controllo dell'esito dell'autorizzazione",
+          "expected_result": "L'autorizzazione con PosteID è completata e il flusso prosegue"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "ELM-TITOLO",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "titolo"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica titolo schermata '{schermata}'",
+      "actions_and_data": "Controllo del titolo della schermata '{schermata}'",
+      "expected_result": "Il titolo '{elemento}' è visualizzato correttamente"
+    },
+    {
+      "id": "ELM-TESTO",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "testo"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica testo informativo schermata '{schermata}'",
+      "actions_and_data": "Controllo del testo presente nella schermata '{schermata}'",
+      "expected_result": "Il testo '{elemento}' è visualizzato per intero e senza troncamenti"
+    },
+    {
+      "id": "ELM-CTA-ATTIVA",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "cta", "enabled": true},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica CTA '{elemento}'",
+      "actions_and_data": "Controllo delle CTA presenti nella schermata '{schermata}'",
+      "expected_result": "La CTA '{elemento}' è visualizzata e abilitata"
+    },
+    {
+      "id": "ELM-CTA-DISATTIVA",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "cta", "enabled": false},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica CTA '{elemento}' non abilitata",
+      "actions_and_data": "Controllo delle CTA presenti nella schermata '{schermata}'",
+      "expected_result": "La CTA '{elemento}' è visualizzata e non abilitata"
+    },
+    {
+      "id": "ELM-CAMPO-VALORE",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "campo", "valore": true},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica campo '{elemento}'",
+      "actions_and_data": "Controllo del campo '{elemento}' nella schermata '{schermata}'",
+      "expected_result": "Il campo '{elemento}' è visualizzato con valore '{valore}'"
+    },
+    {
+      "id": "ELM-CAMPO",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "campo", "valore": false},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica campo '{elemento}'",
+      "actions_and_data": "Controllo del campo '{elemento}' nella schermata '{schermata}'",
+      "expected_result": "Il campo '{elemento}' è visualizzato nella schermata"
+    },
+    {
+      "id": "ELM-CAMPO-OBBLIGATORIO",
+      "categoria": "verifica_elemento",
+      "priorita": 2,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "campo", "required": true},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica obbligatorietà campo '{elemento}'",
+      "actions_and_data": "Controllo delle proprietà del campo '{elemento}'",
+      "expected_result": "Il campo '{elemento}' è indicato come obbligatorio"
+    },
+    {
+      "id": "ELM-CARD-VALORE",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "card", "valore": true},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica card '{elemento}'",
+      "actions_and_data": "Controllo delle card presenti nella schermata '{schermata}'",
+      "expected_result": "La card '{elemento}' è visualizzata con descrizione '{valore}'"
+    },
+    {
+      "id": "ELM-CARD",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "card", "valore": false},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica card '{elemento}'",
+      "actions_and_data": "Controllo delle card presenti nella schermata '{schermata}'",
+      "expected_result": "La card '{elemento}' è visualizzata"
+    },
+    {
+      "id": "ELM-LINK",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "link"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica link '{elemento}'",
+      "actions_and_data": "Controllo dei link presenti nella schermata '{schermata}'",
+      "expected_result": "Il link '{elemento}' è visualizzato e selezionabile"
+    },
+    {
+      "id": "ELM-RADIO",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "radio"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica opzione '{elemento}'",
+      "actions_and_data": "Controllo delle opzioni selezionabili nella schermata '{schermata}'",
+      "expected_result": "L'opzione '{elemento}' è visualizzata e selezionabile"
+    },
+    {
+      "id": "ELM-CHECKBOX",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "checkbox"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica checkbox '{elemento}'",
+      "actions_and_data": "Controllo delle checkbox presenti nella schermata '{schermata}'",
+      "expected_result": "La checkbox '{elemento}' è visualizzata e selezionabile"
+    },
+    {
+      "id": "ELM-LISTA",
+      "categoria": "verifica_elemento",
+      "priorita": 1,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "lista"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica lista '{elemento}'",
+      "actions_and_data": "Controllo delle liste presenti nella schermata '{schermata}'",
+      "expected_result": "La lista '{elemento}' è visualizzata con le voci previste"
+    },
+    {
+      "id": "ELM-ALTRO",
+      "categoria": "verifica_elemento",
+      "priorita": 2,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "elemento",
+      "applicabile_se": {"element_type": "*"},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica elemento '{elemento}'",
+      "actions_and_data": "Controllo degli elementi presenti nella schermata '{schermata}'",
+      "expected_result": "L'elemento '{elemento}' è visualizzato nella schermata"
+    },
+    {
+      "id": "SCR-LAYOUT",
+      "categoria": "verifica_schermata",
+      "priorita": 3,
+      "posizione": "dopo_schermata",
+      "ripeti_per": "schermata",
+      "applicabile_se": {},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica layout schermata '{schermata}'",
+      "actions_and_data": "Controllo della disposizione degli elementi della schermata '{schermata}'",
+      "expected_result": "La schermata '{schermata}' è visualizzata in modo conforme al design di riferimento"
+    },
+    {
+      "id": "FIN-FIGMA",
+      "categoria": "chiusura",
+      "priorita": 4,
+      "obbligatorio_fasce": ["Oltre 25", "21-25"],
+      "posizione": "fine",
+      "ripeti_per": null,
+      "applicabile_se": {"ui": true},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica coerenza con il design Figma",
+      "actions_and_data": "Confronto degli step eseguiti e delle schermate visualizzate con il design Figma dell'iniziativa",
+      "expected_result": "Gli step eseguiti e le schermate visualizzate corrispondono al design Figma dell'iniziativa"
+    },
+    {
+      "id": "FIN-DATI-BE-FE",
+      "categoria": "chiusura",
+      "priorita": 4,
+      "posizione": "fine",
+      "ripeti_per": null,
+      "applicabile_se": {"test_type": "Integrato"},
+      "step_type": "Verifica esterna",
+      "step_name": "Verifica conformità dati utenza BE/FE",
+      "actions_and_data": "Confronto dei dati dell'utenza visualizzati in app con i dati presenti a back-end",
+      "expected_result": "I dati dell'utenza visualizzati a front-end sono conformi a quelli presenti a back-end"
+    },
+    {
+      "id": "FIN-STABILITA",
+      "categoria": "chiusura",
+      "priorita": 5,
+      "posizione": "fine",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica stabilità applicazione",
+      "actions_and_data": "Controllo dello stato dell'applicazione al termine del flusso",
+      "expected_result": "L'applicazione resta attiva e utilizzabile, senza blocchi o chiusure inattese"
+    },
+    {
+      "id": "FIN-NO-ERRORI",
+      "categoria": "chiusura",
+      "priorita": 5,
+      "posizione": "fine",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Verifica interna",
+      "step_name": "Verifica assenza errori non previsti",
+      "actions_and_data": "Controllo dei messaggi visualizzati durante il flusso",
+      "expected_result": "Non sono visualizzati messaggi di errore non previsti dal flusso"
+    },
+    {
+      "id": "PRE-LOGIN",
+      "categoria": "precondizioni",
+      "priorita": 4,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {"stato_base": "Post-login"},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Controllo login utenza",
+      "actions_and_data": "Esecuzione del login con l'utenza di test",
+      "expected_result": "Il login con l'utenza di test è eseguito correttamente"
+    },
+    {
+      "id": "PRE-VERSIONE",
+      "categoria": "precondizioni",
+      "priorita": 4,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Controllo versione app",
+      "actions_and_data": "Controllo della versione dell'applicazione installata sul dispositivo",
+      "expected_result": "La versione dell'applicazione installata corrisponde alla versione oggetto di test"
+    },
+    {
+      "id": "PRE-LINGUA",
+      "categoria": "precondizioni",
+      "priorita": 4,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Controllo lingua app",
+      "actions_and_data": "Controllo della lingua impostata nell'applicazione",
+      "expected_result": "L'applicazione è impostata sulla lingua prevista per il test"
+    },
+    {
+      "id": "PRE-CHUCKER",
+      "categoria": "precondizioni",
+      "priorita": 4,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Controllo visibilità log in Chucker",
+      "actions_and_data": "Controllo della visibilità dei log delle chiamate di rete nello strumento Chucker",
+      "expected_result": "I log delle chiamate di rete dell'applicazione sono visibili in Chucker"
+    },
+    {
+      "id": "PRE-RETE",
+      "categoria": "precondizioni",
+      "priorita": 5,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Connettività dispositivo",
+      "actions_and_data": "Dispositivo con connessione dati attiva",
+      "expected_result": "Il dispositivo è connesso alla rete"
+    },
+    {
+      "id": "PRE-UTENZA",
+      "categoria": "precondizioni",
+      "priorita": 5,
+      "posizione": "inizio",
+      "ripeti_per": null,
+      "applicabile_se": {"funzionalita": true},
+      "step_type": "Attività Preliminari e/o Precondizioni",
+      "step_name": "Utenza di test",
+      "actions_and_data": "Utenza di test abilitata alla funzionalità '{funzionalita}'",
+      "expected_result": "L'utenza di test è disponibile e abilitata"
+    }
+  ]
+}
