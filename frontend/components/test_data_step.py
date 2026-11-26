@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from frontend.config import TEST_COUNT_MODE_HELP, TEST_COUNT_MODES
+from frontend.config import TEST_BOOST_HELP, TEST_COUNT_MODE_HELP, TEST_COUNT_MODES
 from frontend.state import AppState
 from frontend.ui import card, step_title
 
@@ -41,3 +41,10 @@ def render_test_data_step(state: AppState) -> None:
             )
         )
         _render_mode_selector(state)
+        state.test_boost = st.toggle(
+            "Test Boost",
+            value=state.test_boost,
+            key="test_boost_input",
+            help="Off: the test cases are exported as the model generates them.",
+        )
+        st.caption(TEST_BOOST_HELP)

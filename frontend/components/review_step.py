@@ -22,9 +22,10 @@ def render_review_step(state: AppState) -> None:
 
     with card("review-test-data"):
         st.markdown("#### Test Data")
-        count_col, mode_col = st.columns(2)
+        count_col, mode_col, boost_col = st.columns(3)
         labeled_value(count_col, "Numero di test necessari", str(state.test_count))
         labeled_value(mode_col, "Come usare il numero", state.test_count_mode.capitalize())
+        labeled_value(boost_col, "Test Boost", "Attivo" if state.test_boost else "Disattivo")
 
     with card("review-documents"):
         docs = selected_documents(state, group=USER_STORIES)

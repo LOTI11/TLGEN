@@ -372,3 +372,90 @@ def test_generation_screen_error_has_no_download(docs_dir):
     at.run()
     assert not at.exception
     assert len(at.get("download_button")) == 0
+
+
+# ------------------------------------------------------------------ Test Boost
+
+
+def test_test_boost_is_off_by_default_and_is_remembered(docs_dir):
+    at = _fill_initiative(_go_to_initiative(_app()))
+    assert at.toggle(key="test_boost_input").value is False
+    assert _state(at).test_boost is False
+
+    at.toggle(key="test_boost_input").set_value(True).run()
+    assert _state(at).test_boost is True
+    at.number_input(key="test_count_input").set_value(5).run()
+    at = _click(at, "Continue")  # review
+    assert not at.exception
+    assert any("Attivo" in m.value for m in at.markdown)
+    at = _click(at, "Back")
+    assert at.toggle(key="test_boost_input").value is True
+
+
+def test_generation_screen_shows_the_step_distribution(docs_dir, tmp_path):
+    import json
+
+    export = tmp_path / "Export.xlsm"
+    export.write_bytes(b"xlsm")
+    at = _app()
+    state = _generation_state_with_test_cases(at, 4, 4)
+    state.export_file = str(export)
+    state.boost_report_json = json.dumps(
+        {
+            "buckets": [
+                {"fascia": "Oltre 25", "obiettivo": 1, "ottenuto": 1, "percentuale": 25.0},
+                {"fascia": "21-25", "obiettivo": 2, "ottenuto": 1, "percentuale": 25.0},
+            ],
+            "step_reali": 30,
+            "step_aggiunti": 40,
+            "avvisi": [],
+        }
+    )
+    at.run()
+    assert not at.exception
+    assert len(at.table) == 1
+    assert any("Not met" in m.value for m in at.markdown)  # st.badge is rendered as markdown
+    assert any("40 steps added" in c.value for c in at.caption)
+
+
+def test_boost_stage_is_skipped_when_off():
+    from frontend.actions import _work_boost
+    from frontend.state import AppState
+
+    state = AppState()
+    state.test_cases_json = '{"test_cases": []}'
+    assert _work_boost(state, lambda _: None) == "Off · skipped"
+    assert state.boost_report_json == ""
+
+
+def test_boost_stage_completes_the_cases_when_on(tmp_path, monkeypatch):
+    import json
+
+    import frontend.actions as actions
+    from frontend.state import AppState
+    from services import test_boost
+    from test_test_boost import UI_SPEC, _case
+
+    def run_boost_tmp(data, ui_spec):
+        return test_boost.run_boost(
+            data,
+            ui_spec,
+            json_file=tmp_path / "test_cases.json",
+            pre_boost_file=tmp_path / "pre.json",
+            report_file=tmp_path / "report.json",
+        )
+
+    monkeypatch.setattr(actions, "run_boost", run_boost_tmp)
+    state = AppState()
+    state.test_boost = True
+    state.test_cases_json = json.dumps({"test_cases": [_case(f"Caso {i}", 1) for i in range(20)]})
+    state.ui_spec_json = json.dumps(UI_SPEC)
+    detail = actions._work_boost(state, lambda _: None)
+    assert "distribution met" in detail
+    assert state.warnings == []
+    boosted = json.loads((tmp_path / "test_cases.json").read_text(encoding="utf-8"))
+    assert sum(len(c["steps"]) for c in boosted["test_cases"]) > sum(
+        len(c["steps"]) for c in json.loads(state.test_cases_json)["test_cases"]
+    )
+    assert (tmp_path / "pre.json").is_file() and (tmp_path / "report.json").is_file()
+    assert json.loads(state.boost_report_json)["buckets"][0]["obiettivo"] == 3

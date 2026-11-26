@@ -39,7 +39,14 @@ PIPELINE_STAGES: tuple[tuple[str, str, str], ...] = (
     ("ui", "Analyze UI designs", "Figma screens → UI spec JSON"),
     ("prompt2", "Plan test cases", "Split by user story"),
     ("test_cases", "Generate test cases", "Case list and steps per user story, checked"),
+    ("boost", "Test Boost", "Step distribution 15/40/25/20% (only when enabled)"),
     ("export", "Build Test List", "Python → Excel/XLSM"),
+)
+
+# Test Boost: completes the short cases with the steps of parser/boost/boostSteps.json.
+TEST_BOOST_HELP = (
+    "Rispetta la distribuzione obbligatoria degli step sull'intera test list: 15% dei casi "
+    "oltre 25 step, 40% tra 21 e 25, 25% tra 11 e 20, 20% tra 6 e 10"
 )
 
 # How the requested number of test cases is used: label shown -> value for the prompt.

@@ -1,7 +1,7 @@
 """CTA handlers: the integration point between the UI and the backend services.
 
 All pipeline stages are connected: inputs, prompt1, requirements, ui, prompt2
-(plan), test_cases, export. Each one is a ``_work_*`` function run from
+(plan), test_cases, boost (only when Test Boost is on), export. Each one is a ``_work_*`` function run from
 ``run_generation`` through ``_run_stage``.
 """
 
@@ -35,6 +35,7 @@ from services.json_generation import JsonGenerationError
 from services.llm_types import IncompleteResponseError
 from services.prompt_builder import InitiativeData, PromptBuildError, build_requirements_prompt
 from services.requirements_extraction import extract_requirements
+from services.test_boost import bucket_summary, run_boost
 from services.test_case_generation import allocate_targets, generate_test_list, plan_user_stories
 from services.test_list_export import ExportError, export_test_list
 from services.ui_analysis import UiAnalysisError, analyze_ui, prepare_ui_files
@@ -76,6 +77,7 @@ def run_generation(update_ui: UpdateUi) -> None:
         ("ui", lambda report: _work_analyze_ui(state, report)),
         ("prompt2", lambda report: _work_plan_test_cases(state)),
         ("test_cases", lambda report: _work_generate_test_cases(state, report)),
+        ("boost", lambda report: _work_boost(state, report)),
         ("export", lambda report: _work_export(state, report)),
     )
     for key, worker in stages:
@@ -272,6 +274,41 @@ def _work_generate_test_cases(state: AppState, report: Callable[[str], None]) ->
             *failed,
             f"{result.calls} requests",
             _elapsed(started),
+        ]
+    )
+
+
+def _work_boost(state: AppState, report: Callable[[str], None]) -> str:
+    """Test Boost stage: complete the short cases to meet the step distribution.
+
+    Off: nothing changes and the export uses the test cases as generated. On: the
+    completed test list replaces the JSON read by the export (the generated one is
+    kept in test_cases_pre_boost.json, the added steps in boost_report.json).
+    """
+    state.boost_report_json = ""
+    if not state.test_boost:
+        return "Off · skipped"
+    report("Completing the cases below their step range…")
+    result, _ = run_boost(
+        json.loads(state.test_cases_json),
+        json.loads(state.ui_spec_json) if state.ui_spec_json else None,
+    )
+    state.boost_report_json = json.dumps(result.to_json(), indent=2, ensure_ascii=False)
+    missed = [b for b in result.buckets if not b.met]
+    if missed or result.warnings:
+        state.warnings.append(
+            "Test Boost: the step distribution is NOT fully met.\n"
+            + "\n".join(
+                f"- {b.bucket.label} steps: {b.actual} cases out of {b.target} required" for b in missed
+            )
+            + ("\n" if missed and result.warnings else "")
+            + "\n".join(f"- {w}" for w in result.warnings)
+        )
+    return " · ".join(
+        [
+            bucket_summary(result),
+            f"{result.added_steps:,} steps added",
+            "distribution met" if result.met else "distribution NOT met",
         ]
     )
 

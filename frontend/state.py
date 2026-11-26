@@ -40,6 +40,8 @@ class AppState:
     )
     test_count: int = 0
     test_count_mode: str = DEFAULT_TEST_COUNT_MODE
+    # Test Boost: complete the short cases to meet the step distribution (off by default).
+    test_boost: bool = False
     # Pipeline progress, to be updated by the backend integration.
     stage_status: dict[str, str] = field(default_factory=_initial_stage_status)
     stage_detail: dict[str, str] = field(default_factory=dict)
@@ -57,6 +59,8 @@ class AppState:
     test_cases_prompt: str = ""
     # Output of stage 5 (Generate test cases): formatted test cases JSON.
     test_cases_json: str = ""
+    # Output of the Test Boost stage: report JSON (buckets and added steps); "" = off.
+    boost_report_json: str = ""
     # Output of stage 6 (Build Test List): path of the generated XLSM file.
     export_file: str = ""
     # Non-blocking notices for the user (e.g. JSON repaired automatically).
@@ -91,5 +95,6 @@ def reset_pipeline() -> None:
     state.ui_spec_json = ""
     state.test_cases_prompt = ""
     state.test_cases_json = ""
+    state.boost_report_json = ""
     state.export_file = ""
     state.warnings = []
